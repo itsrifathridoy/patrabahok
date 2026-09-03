@@ -1,0 +1,26 @@
+[DEFAULT]
+banaction = ufw
+bantime = 1h
+bantime.increment = true
+maxbantime = 1w
+findtime = 10m
+maxretry = 5
+destemail = {{ADMIN_EMAIL}}
+
+[sshd]
+enabled = true
+
+[postfix-sasl]
+enabled = true
+port = smtp,465,submission
+logpath = /var/log/mail.log
+
+[postfix]
+enabled = true
+port = smtp,465,submission
+logpath = /var/log/mail.log
+
+[dovecot]
+enabled = true
+port = pop3,pop3s,imap,imaps,submission,465,sieve
+logpath = /var/log/mail.log

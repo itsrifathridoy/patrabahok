@@ -1,0 +1,327 @@
+#!/usr/bin/env bash
+# patrabahok — day-2 management CLI for domains, mailboxes, aliases, DKIM, queue, status.
+# Installed to /usr/local/bin/patrabahok by lib/phases/95-cli.sh.
+set -euo pipefail
+
+MYSQL_CNF="/etc/patrabahok/mysql-admin.cnf"
+STATE_FILE="/etc/patrabahok/state.json"
+VMAIL_HOME="/var/mail/vhosts"
+DKIM_DIR="/var/lib/rspamd/dkim"
+SELECTOR="mail"
+
+c_info()  { printf '\033[0;36m[INFO]\033[0m %s\n' "$*"; }
+c_ok()    { printf '\033[0;32m[ OK ]\033[0m %s\n' "$*"; }
+c_warn()  { printf '\033[0;33m[WARN]\033[0m %s\n' "$*" >&2; }
+c_err()   { printf '\033[0;31m[FAIL]\033[0m %s\n' "$*" >&2; }
+die()     { c_err "$*"; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "patrabahok must be run as root (it manages mail data, DB credentials, and system files)."
+[ -f "$MYSQL_CNF" ] || die "Not configured yet: $MYSQL_CNF not found. Run the installer first."
+
+db() {
+  mysql --defaults-extra-file="$MYSQL_CNF" -N -B "$@"
+}
+
+sql_escape() {
+  printf '%s' "$1" | sed "s/\\\\/\\\\\\\\/g; s/'/''/g"
+}
+
+is_valid_domain() {
+  [[ "$1" =~ ^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]
+}
+
+is_valid_email() {
+  [[ "$1" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]
+}
+
+split_email() {
+  EMAIL_LOCAL="${1%@*}"
+  EMAIL_DOMAIN="${1#*@}"
+}
+
+parse_quota_bytes() {
+  local q="${1:-1G}" num unit
+  num=$(printf '%s' "$q" | grep -oE '^[0-9]+')
+  unit=$(printf '%s' "$q" | grep -oE '[A-Za-z]+$' || true)
+  [ -n "$num" ] || die "Invalid quota: $q (expected e.g. 500M, 1G)"
+  case "${unit^^}" in
+    ""|B) echo "$num" ;;
+    K|KB) echo $((num * 1024)) ;;
+    M|MB) echo $((num * 1024 * 1024)) ;;
+    G|GB) echo $((num * 1024 * 1024 * 1024)) ;;
+    *) die "Invalid quota unit: $unit" ;;
+  esac
+}
+
+require_domain_exists() {
+  local domain="$1" escaped
+  escaped="$(sql_escape "$domain")"
+  local id
+  id=$(db -e "SELECT id FROM virtual_domains WHERE name='${escaped}';")
+  [ -n "$id" ] || die "Domain '$domain' is not registered. Run: patrabahok domain add $domain"
+  printf '%s' "$id"
+}
+
+usage() {
+  cat <<'EOF'
+patrabahok — mail server management CLI
+
+Usage:
+  patrabahok domain add <domain>
+  patrabahok domain list
+  patrabahok domain remove <domain> [--force]
+
+  patrabahok mailbox add <user@domain> [--quota 500M] [--password PASS]
+  patrabahok mailbox list [domain]
+  patrabahok mailbox remove <user@domain> [--force]
+  patrabahok mailbox passwd <user@domain> [--password PASS]
+
+  patrabahok alias add <alias@domain> <target@domain>
+  patrabahok alias list [domain]
+  patrabahok alias remove <alias@domain> <target@domain>
+
+  patrabahok dkim show <domain>
+  patrabahok dns show <domain>
+
+  patrabahok queue list
+  patrabahok queue flush
+
+  patrabahok status
+EOF
+}
+
+cmd_domain_add() {
+  local domain="${1:?domain required}"
+  is_valid_domain "$domain" || die "Invalid domain: $domain"
+  db -e "INSERT IGNORE INTO virtual_domains (name) VALUES ('$(sql_escape "$domain")');"
+  c_ok "Domain added: $domain"
+}
+
+cmd_domain_list() {
+  db -e "SELECT name FROM virtual_domains ORDER BY name;"
+}
+
+cmd_domain_remove() {
+  local force=0 args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force) force=1; shift ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  local domain="${args[0]:?domain required}"
+  is_valid_domain "$domain" || die "Invalid domain: $domain"
+  if [ "$force" -ne 1 ]; then
+    read -r -p "This deletes all mailboxes/aliases for ${domain}. Type the domain name to confirm: " confirm
+    [ "$confirm" = "$domain" ] || die "Confirmation did not match. Aborted."
+  fi
+  db -e "DELETE FROM virtual_domains WHERE name='$(sql_escape "$domain")';"
+  c_ok "Domain removed: $domain"
+}
+
+cmd_mailbox_add() {
+  local email="" quota="1G" password=""
+  local args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --quota) quota="$2"; shift 2 ;;
+      --password) password="$2"; shift 2 ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  email="${args[0]:?user@domain required}"
+  is_valid_email "$email" || die "Invalid email: $email"
+  split_email "$email"
+  require_domain_exists "$EMAIL_DOMAIN" >/dev/null
+
+  if [ -z "$password" ]; then
+    read -r -s -p "Password for ${email}: " password; echo
+    local password2
+    read -r -s -p "Confirm password: " password2; echo
+    [ "$password" = "$password2" ] || die "Passwords did not match."
+  fi
+  [ -n "$password" ] || die "Password cannot be empty."
+
+  local hash quota_bytes maildir
+  hash=$(doveadm pw -s SHA512-CRYPT -p "$password")
+  quota_bytes=$(parse_quota_bytes "$quota")
+  maildir="${EMAIL_DOMAIN}/${EMAIL_LOCAL}"
+
+  db -e "INSERT INTO virtual_users (domain_id, email, password, maildir, quota_bytes)
+         SELECT id, '$(sql_escape "$email")', '$(sql_escape "$hash")', '$(sql_escape "$maildir")', ${quota_bytes}
+         FROM virtual_domains WHERE name='$(sql_escape "$EMAIL_DOMAIN")'
+         ON DUPLICATE KEY UPDATE password=VALUES(password), quota_bytes=VALUES(quota_bytes);"
+
+  install -d -o vmail -g vmail -m 700 "${VMAIL_HOME}/${maildir}/Maildir/cur" \
+                                        "${VMAIL_HOME}/${maildir}/Maildir/new" \
+                                        "${VMAIL_HOME}/${maildir}/Maildir/tmp" \
+                                        "${VMAIL_HOME}/${maildir}/sieve"
+
+  c_ok "Mailbox ready: $email (quota: $quota)"
+}
+
+cmd_mailbox_list() {
+  local domain="${1:-}"
+  if [ -n "$domain" ]; then
+    db -e "SELECT email, enabled, quota_bytes FROM virtual_users vu
+           JOIN virtual_domains vd ON vd.id = vu.domain_id
+           WHERE vd.name='$(sql_escape "$domain")' ORDER BY email;"
+  else
+    db -e "SELECT email, enabled, quota_bytes FROM virtual_users ORDER BY email;"
+  fi
+}
+
+cmd_mailbox_remove() {
+  local force=0 args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force) force=1; shift ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  local email="${args[0]:?user@domain required}"
+  is_valid_email "$email" || die "Invalid email: $email"
+  if [ "$force" -ne 1 ]; then
+    read -r -p "Delete mailbox ${email} and its mail data? Type the address to confirm: " confirm
+    [ "$confirm" = "$email" ] || die "Confirmation did not match. Aborted."
+  fi
+  split_email "$email"
+  db -e "DELETE FROM virtual_users WHERE email='$(sql_escape "$email")';"
+  rm -rf "${VMAIL_HOME:?}/${EMAIL_DOMAIN}/${EMAIL_LOCAL}"
+  c_ok "Mailbox removed: $email"
+}
+
+cmd_mailbox_passwd() {
+  local email="" password=""
+  local args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --password) password="$2"; shift 2 ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  email="${args[0]:?user@domain required}"
+  is_valid_email "$email" || die "Invalid email: $email"
+
+  if [ -z "$password" ]; then
+    read -r -s -p "New password for ${email}: " password; echo
+    local password2
+    read -r -s -p "Confirm password: " password2; echo
+    [ "$password" = "$password2" ] || die "Passwords did not match."
+  fi
+
+  local hash
+  hash=$(doveadm pw -s SHA512-CRYPT -p "$password")
+  db -e "UPDATE virtual_users SET password='$(sql_escape "$hash")' WHERE email='$(sql_escape "$email")';"
+  c_ok "Password updated for $email"
+}
+
+cmd_alias_add() {
+  local source="${1:?alias@domain required}" dest="${2:?target@domain required}"
+  is_valid_email "$source" || die "Invalid alias address: $source"
+  is_valid_email "$dest" || die "Invalid target address: $dest"
+  split_email "$source"
+  require_domain_exists "$EMAIL_DOMAIN" >/dev/null
+  db -e "INSERT IGNORE INTO virtual_aliases (domain_id, source, destination)
+         SELECT id, '$(sql_escape "$source")', '$(sql_escape "$dest")'
+         FROM virtual_domains WHERE name='$(sql_escape "$EMAIL_DOMAIN")';"
+  c_ok "Alias added: $source -> $dest"
+}
+
+cmd_alias_list() {
+  local domain="${1:-}"
+  if [ -n "$domain" ]; then
+    db -e "SELECT source, destination FROM virtual_aliases va
+           JOIN virtual_domains vd ON vd.id = va.domain_id
+           WHERE vd.name='$(sql_escape "$domain")' ORDER BY source;"
+  else
+    db -e "SELECT source, destination FROM virtual_aliases ORDER BY source;"
+  fi
+}
+
+cmd_alias_remove() {
+  local source="${1:?alias@domain required}" dest="${2:?target@domain required}"
+  db -e "DELETE FROM virtual_aliases WHERE source='$(sql_escape "$source")' AND destination='$(sql_escape "$dest")';"
+  c_ok "Alias removed: $source -> $dest"
+}
+
+cmd_dkim_show() {
+  local domain="${1:?domain required}"
+  local f="${DKIM_DIR}/${domain}.${SELECTOR}.txt"
+  [ -f "$f" ] || die "No DKIM record found for $domain (expected $f). Run the installer's DKIM phase or add the domain."
+  cat "$f"
+}
+
+cmd_dns_show() {
+  local domain="${1:?domain required}"
+  local f="/root/patrabahok-dns-${domain}.txt"
+  if [ -f "$f" ]; then
+    cat "$f"
+  else
+    c_warn "No cached DNS record file for $domain — showing DKIM only:"
+    cmd_dkim_show "$domain"
+  fi
+}
+
+cmd_queue_list() { postqueue -p; }
+cmd_queue_flush() { postqueue -f; c_ok "Queue flush requested."; }
+
+cmd_status() {
+  command -v jq >/dev/null 2>&1 && [ -f "$STATE_FILE" ] && jq . "$STATE_FILE" || die "State file not found: $STATE_FILE"
+}
+
+main() {
+  local group="${1:-}"; shift || true
+  local action="${1:-}"; shift || true
+  case "$group" in
+    domain)
+      case "$action" in
+        add) cmd_domain_add "$@" ;;
+        list) cmd_domain_list "$@" ;;
+        remove) cmd_domain_remove "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    mailbox)
+      case "$action" in
+        add) cmd_mailbox_add "$@" ;;
+        list) cmd_mailbox_list "$@" ;;
+        remove) cmd_mailbox_remove "$@" ;;
+        passwd) cmd_mailbox_passwd "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    alias)
+      case "$action" in
+        add) cmd_alias_add "$@" ;;
+        list) cmd_alias_list "$@" ;;
+        remove) cmd_alias_remove "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    dkim)
+      case "$action" in
+        show) cmd_dkim_show "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    dns)
+      case "$action" in
+        show) cmd_dns_show "$@" ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    queue)
+      case "$action" in
+        list) cmd_queue_list ;;
+        flush) cmd_queue_flush ;;
+        *) usage; exit 1 ;;
+      esac
+      ;;
+    status) cmd_status ;;
+    -h|--help|"") usage ;;
+    *) usage; exit 1 ;;
+  esac
+}
+
+main "$@"

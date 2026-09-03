@@ -1,0 +1,8 @@
+milter = yes;
+bind_socket = "/run/rspamd/rspamd-milter.sock mode=0666";
+timeout = 30s;
+
+upstream "local" {
+  default = yes;
+  self_scan = yes;
+}

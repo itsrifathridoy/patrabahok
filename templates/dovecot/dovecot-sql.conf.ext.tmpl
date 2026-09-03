@@ -1,0 +1,7 @@
+driver = mysql
+connect = host=127.0.0.1 dbname={{DB_NAME}} user={{DB_READONLY_USER}} password={{DB_READONLY_PASSWORD}}
+default_pass_scheme = SHA512-CRYPT
+
+password_query = SELECT email AS user, password FROM virtual_users WHERE email='%u' AND enabled = 1
+user_query = SELECT CONCAT('/var/mail/vhosts/', maildir) AS home, 5000 AS uid, 5000 AS gid FROM virtual_users WHERE email='%u' AND enabled = 1
+iterate_query = SELECT email AS user FROM virtual_users WHERE enabled = 1

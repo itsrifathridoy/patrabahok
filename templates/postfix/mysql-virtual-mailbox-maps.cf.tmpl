@@ -1,0 +1,5 @@
+user = {{DB_READONLY_USER}}
+password = {{DB_READONLY_PASSWORD}}
+hosts = 127.0.0.1
+dbname = {{DB_NAME}}
+query = SELECT 1 FROM virtual_users WHERE email='%s' AND enabled = 1

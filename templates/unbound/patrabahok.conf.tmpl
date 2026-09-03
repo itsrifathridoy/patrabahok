@@ -1,0 +1,18 @@
+server:
+    interface: 127.0.0.1
+    port: 53
+    do-ip4: yes
+    do-ip6: no
+    do-udp: yes
+    do-tcp: yes
+    access-control: 127.0.0.1/32 allow
+    hide-identity: yes
+    hide-version: yes
+    harden-glue: yes
+    harden-dnssec-stripped: yes
+    prefetch: yes
+    cache-min-ttl: 300
+    cache-max-ttl: 86400
+    num-threads: 2
+    msg-cache-size: 32m
+    rrset-cache-size: 64m

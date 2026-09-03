@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.sh text eol=lf
+install.sh text eol=lf
+bin/patrabahok-installer text eol=lf
+cli/patrabahok text eol=lf

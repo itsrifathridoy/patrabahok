@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Main installer entrypoint. Invoked by install.sh after checksum verification of the
+# release tarball that contains this file — do not run a copy of this script that you
+# have not obtained through that verified path (or that you do not otherwise trust).
+set -euo pipefail
+
+PATRABAHOK_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATRABAHOK_HOME
+PATRABAHOK_INSTALLER_VERSION="$(cat "$PATRABAHOK_HOME/VERSION" 2>/dev/null || echo dev)"
+export PATRABAHOK_INSTALLER_VERSION
+
+# shellcheck source=lib/core/log.sh
+. "$PATRABAHOK_HOME/lib/core/log.sh"
+# shellcheck source=lib/core/os.sh
+. "$PATRABAHOK_HOME/lib/core/os.sh"
+# shellcheck source=lib/core/state.sh
+. "$PATRABAHOK_HOME/lib/core/state.sh"
+
+PATRABAHOK_PHASES_DIR="$PATRABAHOK_HOME/lib/phases"
+
+usage() {
+  cat <<EOF
+patrabahok-installer ${PATRABAHOK_INSTALLER_VERSION}
+
+Usage:
+  patrabahok-installer install [options]
+  patrabahok-installer status
+  patrabahok-installer verify
+
+Install options:
+  --non-interactive     Fail instead of prompting; requires PATRABAHOK_<VAR> env vars or --config
+  --config FILE         Source FILE (KEY=value lines) into the environment before running
+  --force-os            Continue even on an unsupported/untested OS
+  --force-phase NAME    Re-run one phase (e.g. 50-postfix) even if already marked done
+  --resume              Default behavior: skip phases already marked done (kept for clarity)
+
+Examples:
+  patrabahok-installer install
+  patrabahok-installer install --non-interactive --config /root/patrabahok-answers.env
+  patrabahok-installer install --force-phase 50-postfix
+EOF
+}
+
+FORCE_PHASE=""
+
+cmd_install() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --non-interactive) PATRABAHOK_NON_INTERACTIVE=1; export PATRABAHOK_NON_INTERACTIVE ;;
+      --config)
+        shift
+        [ -n "${1:-}" ] && [ -f "$1" ] || die "--config file not found: ${1:-<missing>}"
+        set -a
+        # shellcheck disable=SC1090
+        . "$1"
+        set +a
+        ;;
+      --force-os) PATRABAHOK_FORCE_OS=1; export PATRABAHOK_FORCE_OS ;;
+      --force-phase) shift; FORCE_PHASE="${1:-}" ;;
+      --resume) : ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "Unknown option: $1 (see --help)" ;;
+    esac
+    shift
+  done
+
+  [ "$(id -u)" -eq 0 ] || die "Must run as root."
+
+  require_supported_os
+
+  if ! command -v jq >/dev/null 2>&1; then
+    log_info "Installing jq (needed for installer state tracking)..."
+    apt_update
+    apt_install jq
+  fi
+
+  state_init
+
+  local phase_file phase_name rc
+  for phase_file in "$PATRABAHOK_PHASES_DIR"/*.sh; do
+    [ -e "$phase_file" ] || continue
+    phase_name="$(basename "$phase_file" .sh)"
+
+    if [ "$phase_name" = "$FORCE_PHASE" ]; then
+      log_info "Forcing re-run of phase: $phase_name"
+    elif state_is_done "$phase_name"; then
+      log_info "Skipping already-completed phase: $phase_name"
+      continue
+    fi
+
+    log_info "==> Running phase: $phase_name"
+    rc=0
+    bash "$phase_file" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      state_mark_done "$phase_name"
+      log_ok "Phase $phase_name complete."
+    else
+      state_mark_failed "$phase_name" "exited with code $rc"
+      die "Phase $phase_name failed (exit $rc). See $PATRABAHOK_LOG_FILE for details, fix the issue, then re-run 'patrabahok-installer install' to resume."
+    fi
+  done
+
+  log_ok "Installation complete."
+  echo
+  echo "Next steps:"
+  echo "  patrabahok status                 # review installer state"
+  echo "  patrabahok dns show <domain>      # print required DNS records"
+  echo "  patrabahok domain add <domain>    # add another domain"
+  echo "  patrabahok mailbox add <user@domain>"
+}
+
+cmd_status() {
+  state_init
+  jq . "$PATRABAHOK_STATE_FILE"
+}
+
+cmd_verify() {
+  [ -f "$PATRABAHOK_PHASES_DIR/99-verify.sh" ] || die "verify phase not found"
+  bash "$PATRABAHOK_PHASES_DIR/99-verify.sh"
+}
+
+case "${1:-}" in
+  install) shift; cmd_install "$@" ;;
+  status) cmd_status ;;
+  verify) cmd_verify ;;
+  -h|--help|"") usage ;;
+  *) usage; exit 1 ;;
+esac

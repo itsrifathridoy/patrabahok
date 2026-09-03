@@ -1,0 +1,87 @@
+# Managed by patrabahok — do not edit by hand, changes will be overwritten on re-install.
+protocols = imap lmtp sieve
+
+mail_location = maildir:~/Maildir
+
+mail_uid = vmail
+mail_gid = vmail
+first_valid_uid = 5000
+last_valid_uid = 5000
+
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+
+userdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+
+disable_plaintext_auth = yes
+auth_mechanisms = plain login
+
+ssl = required
+ssl_cert = <{{TLS_CERT}}
+ssl_key = <{{TLS_KEY}}
+ssl_min_protocol = TLSv1.2
+ssl_cipher_list = ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5:!DSS
+ssl_prefer_server_ciphers = no
+
+service imap-login {
+  inet_listener imap {
+    port = 0
+  }
+  inet_listener imaps {
+    port = 993
+    ssl = yes
+  }
+}
+
+service pop3-login {
+  inet_listener pop3 {
+    port = 0
+  }
+  inet_listener pop3s {
+    port = 0
+  }
+}
+
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+  unix_listener auth-userdb {
+    mode = 0600
+    user = vmail
+  }
+}
+
+protocol lmtp {
+  mail_plugins = $mail_plugins sieve
+}
+
+protocol lda {
+  mail_plugins = $mail_plugins sieve
+}
+
+protocol imap {
+  mail_plugins = $mail_plugins imap_quota
+}
+
+mail_plugins = $mail_plugins quota
+
+plugin {
+  sieve = file:~/sieve;active=~/.dovecot.sieve
+  quota_rule = *:storage=1G
+}

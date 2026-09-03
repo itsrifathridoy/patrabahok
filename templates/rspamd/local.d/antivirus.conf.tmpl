@@ -1,0 +1,9 @@
+clamav {
+  action = "reject";
+  symbol = "CLAM_VIRUS";
+  type = "clamav";
+  log_clean = true;
+  servers = "/var/run/clamav/clamd.ctl";
+  scan_mime_parts = true;
+  max_size = 20000000;
+}

@@ -1,0 +1,5 @@
+user = {{DB_READONLY_USER}}
+password = {{DB_READONLY_PASSWORD}}
+hosts = 127.0.0.1
+dbname = {{DB_NAME}}
+query = SELECT destination FROM virtual_aliases WHERE source='%s'

@@ -1,0 +1,6 @@
+selector = "mail";
+path = "/var/lib/rspamd/dkim/$domain.$selector.key";
+allow_username_mismatch = true;
+sign_authenticated = true;
+sign_local = true;
+use_domain = "header";

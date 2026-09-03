@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# shellcheck source=../core/log.sh
+. "$PATRABAHOK_HOME/lib/core/log.sh"
+# shellcheck source=../core/state.sh
+. "$PATRABAHOK_HOME/lib/core/state.sh"
+state_init
+
+RSPAMD_USER="_rspamd"
+SELECTOR="mail"
+DKIM_DIR="/var/lib/rspamd/dkim"
+
+# generate_dkim_key DOMAIN — idempotent: generates a key+DNS-record pair only if one
+# doesn't already exist for this domain/selector.
+generate_dkim_key() {
+  local domain="$1"
+  local key_path="${DKIM_DIR}/${domain}.${SELECTOR}.key"
+  local record_path="${DKIM_DIR}/${domain}.${SELECTOR}.txt"
+
+  if [ -f "$key_path" ]; then
+    log_info "DKIM key for ${domain} already exists, reusing it."
+    return 0
+  fi
+
+  log_info "Generating DKIM key for ${domain} (selector: ${SELECTOR})..."
+  rspamadm dkim_keygen -s "$SELECTOR" -d "$domain" -k "$key_path" > "$record_path"
+  chown "${RSPAMD_USER}:${RSPAMD_USER}" "$key_path"
+  chmod 640 "$key_path"
+  chmod 644 "$record_path"
+}
+
+write_dns_records_file() {
+  local domain="$1" mail_hostname="$2" server_ip="$3" admin_email="$4"
+  local record_path="${DKIM_DIR}/${domain}.${SELECTOR}.txt"
+  local out="/root/patrabahok-dns-${domain}.txt"
+
+  {
+    echo "DNS records required for ${domain} (mail server: ${mail_hostname})"
+    echo "======================================================================"
+    echo
+    echo "-- A record (only needed once, even with multiple domains) --"
+    echo "${mail_hostname}.   IN  A      ${server_ip}"
+    echo
+    echo "-- MX record --"
+    echo "${domain}.   IN  MX  10  ${mail_hostname}."
+    echo
+    echo "-- SPF (TXT) --"
+    echo "${domain}.   IN  TXT    \"v=spf1 mx -all\""
+    echo
+    echo "-- DKIM (TXT) --"
+    if [ -f "$record_path" ]; then
+      cat "$record_path"
+    else
+      echo "(DKIM record file not found at ${record_path} — check 'rspamadm dkim_keygen' output manually.)"
+    fi
+    echo
+    echo "-- DMARC (TXT) — start at p=none, monitor, then move to quarantine/reject --"
+    echo "_dmarc.${domain}.   IN  TXT    \"v=DMARC1; p=none; rua=mailto:${admin_email}\""
+    echo
+    echo "-- MTA-STS (TXT) — optional, requires you to host a policy file yourself; --"
+    echo "-- this installer does not set up that hosting (see docs/ROADMAP.md).     --"
+    echo "_mta-sts.${domain}.   IN  TXT    \"v=STSv1; id=$(date -u +%Y%m%d%H%M%S)\""
+    echo
+  } > "$out"
+  chmod 600 "$out"
+  printf '%s' "$out"
+}
+
+phase_run() {
+  local mail_hostname server_ip admin_email
+  mail_hostname="$(state_get hostname)"
+  server_ip="$(state_get server_ip "<this-server-public-ip>")"
+  admin_email="$(state_get admin_email)"
+
+  mkdir -p "$DKIM_DIR"
+
+  local domain out_file
+  while IFS= read -r domain; do
+    [ -z "$domain" ] && continue
+    [ -z "$admin_email" ] && admin_email="postmaster@${domain}"
+
+    generate_dkim_key "$domain"
+    out_file="$(write_dns_records_file "$domain" "$mail_hostname" "$server_ip" "$admin_email")"
+
+    echo
+    log_ok "DNS records for ${domain} written to ${out_file}:"
+    echo
+    cat "$out_file"
+    echo
+  done < <(state_get_list domains)
+
+  systemctl restart rspamd 2>/dev/null || true
+
+  log_warn "Add the DNS records above before sending real mail. DKIM signing and DMARC"
+  log_warn "verification only take effect once those DNS records propagate."
+  return 0
+}
+
+phase_run
