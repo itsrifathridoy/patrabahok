@@ -39,7 +39,10 @@ EOF
   systemctl enable --now certbot.timer >/dev/null 2>&1 || true
 
   log_info "Testing renewal (dry run)..."
-  certbot renew --dry-run --cert-name "$mail_hostname" >/dev/null \
+  # --no-random-sleep-on-renew: certbot's renew subcommand otherwise sleeps for a random
+  # delay of several minutes (thundering-herd protection for scheduled cron/timer renewals),
+  # which we don't want blocking an interactive/scripted install.
+  certbot renew --dry-run --no-random-sleep-on-renew --cert-name "$mail_hostname" >/dev/null \
     || log_warn "Renewal dry-run failed — check 'certbot certificates' and 'journalctl -u certbot' later."
 
   log_ok "TLS certificate ready at ${cert_dir}"

@@ -41,7 +41,7 @@ split_email() {
 
 parse_quota_bytes() {
   local q="${1:-1G}" num unit
-  num=$(printf '%s' "$q" | grep -oE '^[0-9]+')
+  num=$(printf '%s' "$q" | grep -oE '^[0-9]+' || true)
   unit=$(printf '%s' "$q" | grep -oE '[A-Za-z]+$' || true)
   [ -n "$num" ] || die "Invalid quota: $q (expected e.g. 500M, 1G)"
   case "${unit^^}" in
@@ -152,10 +152,14 @@ cmd_mailbox_add() {
          FROM virtual_domains WHERE name='$(sql_escape "$EMAIL_DOMAIN")'
          ON DUPLICATE KEY UPDATE password=VALUES(password), quota_bytes=VALUES(quota_bytes);"
 
-  install -d -o vmail -g vmail -m 700 "${VMAIL_HOME}/${maildir}/Maildir/cur" \
-                                        "${VMAIL_HOME}/${maildir}/Maildir/new" \
-                                        "${VMAIL_HOME}/${maildir}/Maildir/tmp" \
-                                        "${VMAIL_HOME}/${maildir}/sieve"
+  # install -d only sets ownership/mode on the leaf directories it creates, not on
+  # intermediate parents (Maildir/ itself, the per-domain dir) — chown -R afterward so
+  # Dovecot (running as vmail) can write index/dotlock files directly under Maildir/.
+  install -d -m 700 "${VMAIL_HOME}/${maildir}/Maildir/cur" \
+                     "${VMAIL_HOME}/${maildir}/Maildir/new" \
+                     "${VMAIL_HOME}/${maildir}/Maildir/tmp" \
+                     "${VMAIL_HOME}/${maildir}/sieve"
+  chown -R vmail:vmail "${VMAIL_HOME:?}/${EMAIL_DOMAIN}"
 
   c_ok "Mailbox ready: $email (quota: $quota)"
 }

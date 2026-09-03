@@ -61,6 +61,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON \`${DB_NAME}\`.* TO '${DB_ADMIN_USER}'@'
 FLUSH PRIVILEGES;
 SQL
 
+  log_info "Registering primary domain(s) in the database..."
+  local domain
+  while IFS= read -r domain; do
+    [ -z "$domain" ] && continue
+    mysql -u root "$DB_NAME" -e "INSERT IGNORE INTO virtual_domains (name) VALUES ('${domain}');"
+  done < <(state_get_list domains)
+
   state_set db_name "$DB_NAME"
   state_set db_readonly_user "$DB_READONLY_USER"
   state_set db_admin_user "$DB_ADMIN_USER"

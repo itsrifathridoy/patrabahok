@@ -11,7 +11,7 @@ state_init
 
 detect_ssh_port() {
   local port
-  port=$(grep -iE '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' | head -n1)
+  port=$(grep -iE '^[[:space:]]*Port[[:space:]]+[0-9]+' /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}' | head -n1 || true)
   printf '%s' "${port:-22}"
 }
 
@@ -45,7 +45,7 @@ phase_run() {
 
   sleep 1
   fail2ban-client status >/dev/null || die "fail2ban did not start correctly"
-  log_ok "fail2ban active with jails: $(fail2ban-client status | grep 'Jail list' | sed 's/.*://')"
+  log_ok "fail2ban active with jails: $(fail2ban-client status | grep 'Jail list' | sed 's/.*://' || true)"
 
   return 0
 }

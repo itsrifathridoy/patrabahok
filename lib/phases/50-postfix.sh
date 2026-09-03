@@ -29,6 +29,14 @@ setup_unbound() {
   render_template "$PATRABAHOK_HOME/templates/unbound/patrabahok.conf.tmpl" \
     /etc/unbound/unbound.conf.d/patrabahok.conf
 
+  if [ ! -f /var/lib/unbound/root.key ]; then
+    mkdir -p /var/lib/unbound
+    # unbound-anchor exits 1 when it creates/updates the anchor (not an error) and 0
+    # when nothing needed to change — either way, only the resulting file matters.
+    unbound-anchor -a /var/lib/unbound/root.key || true
+    chown unbound:unbound /var/lib/unbound/root.key 2>/dev/null || true
+  fi
+
   if [ -f /etc/systemd/resolved.conf ]; then
     if ! grep -q '^DNSStubListener=no' /etc/systemd/resolved.conf 2>/dev/null; then
       sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf
@@ -123,6 +131,13 @@ phase_run() {
 
   [ -f /etc/aliases ] || echo "postmaster: root" > /etc/aliases
   newaliases 2>/dev/null || true
+
+  # Chrooted Postfix services (see master.cf's chroot column) read DNS config from a copy
+  # inside the queue directory, not /etc/resolv.conf directly — without this, postscreen's
+  # DNSBL lookups silently bypass the local unbound resolver we just set up.
+  mkdir -p /var/spool/postfix/etc
+  cp -f /etc/resolv.conf /var/spool/postfix/etc/resolv.conf
+  cp -f /etc/services /var/spool/postfix/etc/services 2>/dev/null || true
 
   postfix check || die "postfix check failed — see output above."
 

@@ -2,7 +2,12 @@
 PATRABAHOK_SECRETS_FILE="${PATRABAHOK_SECRETS_FILE:-/etc/patrabahok/secrets.env}"
 
 gen_secret() {
-  openssl rand -base64 40 | tr -dc 'A-Za-z0-9' | cut -c1-32
+  # Deliberately not "openssl ... | tr ... | cut -c1-32": with pipefail active, cut
+  # closing its input early after reading 32 bytes sends SIGPIPE upstream, which
+  # pipefail turns into a nonzero pipeline status and aborts the caller under set -e.
+  local raw
+  raw=$(openssl rand -base64 40 | tr -dc 'A-Za-z0-9')
+  printf '%s' "${raw:0:32}"
 }
 
 secrets_init() {
@@ -21,7 +26,10 @@ secret_ensure() {
   local name="$1"
   secrets_init
   local current
-  current=$(grep -m1 "^${name}=" "$PATRABAHOK_SECRETS_FILE" 2>/dev/null | cut -d= -f2-)
+  # "|| true" is required: grep exits 1 on no-match (the normal first-run case), and
+  # under pipefail that nonzero status propagates through the pipe even though cut
+  # itself succeeds, which would otherwise abort the script here via set -e.
+  current=$(grep -m1 "^${name}=" "$PATRABAHOK_SECRETS_FILE" 2>/dev/null | cut -d= -f2- || true)
   if [ -n "$current" ]; then
     printf -v "$name" '%s' "$current"
     return 0

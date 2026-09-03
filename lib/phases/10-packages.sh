@@ -11,12 +11,12 @@ state_init
 
 PACKAGES=(
   postfix postfix-pcre postfix-mysql
-  dovecot-core dovecot-imapd dovecot-lmtpd dovecot-mysql
+  dovecot-core dovecot-imapd dovecot-lmtpd dovecot-mysql dovecot-sieve
   mariadb-server mariadb-client
   rspamd redis-server
   clamav clamav-daemon clamav-freshclam
   certbot
-  unbound
+  unbound unbound-anchor
   ufw fail2ban
   jq dnsutils
   openssl uuid-runtime
