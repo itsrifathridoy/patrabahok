@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 PATRABAHOK_LOG_DIR="${PATRABAHOK_LOG_DIR:-/var/log/patrabahok}"
 PATRABAHOK_LOG_FILE="${PATRABAHOK_LOG_FILE:-$PATRABAHOK_LOG_DIR/install.log}"
 

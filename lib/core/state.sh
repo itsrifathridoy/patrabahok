@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 PATRABAHOK_ETC_DIR="${PATRABAHOK_ETC_DIR:-/etc/patrabahok}"
 PATRABAHOK_STATE_FILE="${PATRABAHOK_STATE_FILE:-$PATRABAHOK_ETC_DIR/state.json}"
 

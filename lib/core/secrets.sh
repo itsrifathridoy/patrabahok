@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 PATRABAHOK_SECRETS_FILE="${PATRABAHOK_SECRETS_FILE:-/etc/patrabahok/secrets.env}"
 
 gen_secret() {

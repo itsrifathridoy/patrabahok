@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # render_template TEMPLATE_PATH OUTPUT_PATH KEY=VALUE [KEY=VALUE ...]
 # Replaces {{KEY}} placeholders in TEMPLATE_PATH with VALUE and writes OUTPUT_PATH.
 # Deliberately does NOT touch $VAR / ${VAR} syntax — those belong to the target program

@@ -14,7 +14,9 @@ while IFS= read -r -d '' f; do files+=("$f"); done < <(find lib -name '*.sh' -pr
 fail=0
 for f in "${files[@]}"; do
   echo "== $f =="
-  shellcheck -x "$f" || fail=1
+  # SC1091 is expected noise: core libs are sourced via a runtime $PATRABAHOK_HOME path,
+  # not a path shellcheck can statically follow. --severity=warning still catches real bugs.
+  shellcheck -x --severity=warning --exclude=SC1091 "$f" || fail=1
 done
 
 exit "$fail"

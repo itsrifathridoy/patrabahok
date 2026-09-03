@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 detect_os() {
   if [ ! -f /etc/os-release ]; then
     die "Cannot detect OS: /etc/os-release not found."

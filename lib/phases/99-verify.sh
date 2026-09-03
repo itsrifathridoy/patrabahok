@@ -19,8 +19,7 @@ phase_run() {
   log_info "Checking rspamd configuration..."
   if rspamadm configtest 2>&1; then log_ok "rspamd config OK"; else log_error "rspamd configtest failed"; ok=0; fi
 
-  local mail_hostname domain tls_cert_dir
-  mail_hostname="$(state_get hostname)"
+  local domain tls_cert_dir
   domain="$(state_get domain)"
   tls_cert_dir="$(state_get tls_cert_dir)"
 
@@ -46,7 +45,8 @@ phase_run() {
 
   if [ -n "$domain" ] && command -v patrabahok >/dev/null 2>&1; then
     log_info "Running a loopback send/receive test for ${domain}..."
-    local testuser="verify-$(date +%s)"
+    local testuser
+    testuser="verify-$(date +%s)"
     local testaddr="${testuser}@${domain}"
     local testpass
     testpass="$(openssl rand -base64 18 | tr -dc 'A-Za-z0-9')"
