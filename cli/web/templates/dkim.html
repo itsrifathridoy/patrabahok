@@ -49,16 +49,38 @@
 </div>
 
 <div class="card">
-  <h2>Records to add</h2>
-  {{if .RawRecords}}
-  <div class="copy-wrap">
-    <button type="button" class="copy-btn" data-copy="{{.RawRecords}}" data-copy-label="Copy all">
-      {{template "icon-copy"}} Copy all
+  <div class="toolbar">
+    <h2 class="mt-0 mb-0">Records to add</h2>
+    {{if .RawRecords}}
+    <button type="button" class="btn btn-sm" data-copy="{{.RawRecords}}">
+      {{template "icon-copy"}} <span class="copy-label-text">Copy all</span>
     </button>
-    <pre class="dns-record">{{.RawRecords}}</pre>
+    {{end}}
+  </div>
+
+  {{if .RecordEntries}}
+  <div class="record-list">
+    {{range .RecordEntries}}
+    <div class="record-row">
+      <span class="badge badge-muted record-type">{{.Type}}</span>
+      <div class="record-fields">
+        <div class="record-label">{{.Label}}</div>
+        <div class="record-name mono">{{.Name}}</div>
+        <div class="record-value mono">{{.Value}}</div>
+      </div>
+      <button type="button" class="copy-line-btn" data-copy="{{.Value}}" title="Copy value">{{template "icon-copy"}}</button>
+    </div>
+    {{end}}
   </div>
   {{else}}
   <div class="empty">No records generated yet for this domain.</div>
+  {{end}}
+
+  {{if .RawRecords}}
+  <details style="margin-top:14px;">
+    <summary class="text-muted" style="cursor:pointer;font-size:12.5px;">View as plain text</summary>
+    <pre class="dns-record" style="margin-top:10px;">{{.RawRecords}}</pre>
+  </details>
   {{end}}
 </div>
 

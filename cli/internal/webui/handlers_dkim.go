@@ -13,16 +13,28 @@ import (
 
 type DKIMPageData struct {
 	Base
-	Domains    []mailbox.Domain
-	Selected   string
-	RawRecords string
-	Report     *dnscheck.Report
-	Checked    bool
+	Domains       []mailbox.Domain
+	Selected      string
+	RawRecords    string
+	RecordEntries []DNSRecordEntry
+	Report        *dnscheck.Report
+	Checked       bool
 
 	CloudflareConnected    bool
 	CloudflareZone         string
 	CloudflareApplyResults []cloudflare.ApplyResult
 	CloudflareApplyErr     string
+}
+
+// DNSRecordEntry is one DNS record a domain needs, broken out individually (rather than
+// only as one big text blob) so each can get its own "Copy" button — the natural
+// granularity when actually pasting records into a DNS provider's UI one field at a
+// time, not all at once.
+type DNSRecordEntry struct {
+	Label string // "A record", "MX record", ...
+	Type  string // "A", "MX", "TXT" — shown as a small badge
+	Name  string // the DNS name/host field
+	Value string // the value/content field to paste
 }
 
 func stateConfigStrings() (mailHost, serverIP, adminEmail string) {
@@ -66,6 +78,7 @@ func (s *Server) dkimData(r *http.Request, runCheck bool) (DKIMPageData, error) 
 	}
 
 	data.RawRecords, _ = sysinfo.DNSRecords(selected)
+	data.RecordEntries = buildRecordEntries(selected)
 
 	if token, err := s.cloudflare.Token(r.Context()); err == nil && token != "" {
 		data.CloudflareConnected = true
@@ -85,6 +98,34 @@ func (s *Server) dkimData(r *http.Request, runCheck bool) (DKIMPageData, error) 
 		data.Checked = true
 	}
 	return data, nil
+}
+
+// buildRecordEntries computes the individual records a domain needs, the same values
+// used elsewhere for live verification (dnscheck) and Cloudflare auto-configure
+// (cloudflare.ApplyMailRecords) — kept as the single source of truth rather than
+// re-deriving or re-parsing sysinfo.DNSRecords' formatted text blob.
+func buildRecordEntries(domain string) []DNSRecordEntry {
+	mailHost, serverIP, adminEmail := stateConfigStrings()
+	if adminEmail == "" {
+		adminEmail = "postmaster@" + domain
+	}
+
+	var entries []DNSRecordEntry
+	if mailHost != "" && serverIP != "" {
+		entries = append(entries, DNSRecordEntry{Label: "A record", Type: "A", Name: mailHost, Value: serverIP})
+	}
+	if mailHost != "" {
+		entries = append(entries, DNSRecordEntry{Label: "MX record (priority 10)", Type: "MX", Name: domain, Value: mailHost})
+	}
+	entries = append(entries, DNSRecordEntry{Label: "SPF", Type: "TXT", Name: domain, Value: "v=spf1 mx -all"})
+	entries = append(entries, DNSRecordEntry{Label: "DMARC", Type: "TXT", Name: "_dmarc." + domain, Value: "v=DMARC1; p=none; rua=mailto:" + adminEmail})
+
+	if dkimText, err := sysinfo.DKIMRecord(domain); err == nil {
+		if value := dnscheck.FullDKIMRecordValue(dkimText); value != "" {
+			entries = append(entries, DNSRecordEntry{Label: "DKIM", Type: "TXT", Name: "mail._domainkey." + domain, Value: value})
+		}
+	}
+	return entries
 }
 
 func (s *Server) handleDKIMPage(w http.ResponseWriter, r *http.Request) {

@@ -9,16 +9,17 @@ document.addEventListener("click", function (e) {
   if (!text) return;
 
   navigator.clipboard.writeText(text).then(function () {
-    const original = btn.getAttribute("data-copy-label") || btn.textContent;
     btn.classList.add("copied");
-    if (btn.hasAttribute("data-copy-label")) {
-      btn.textContent = "Copied";
-    }
+    // Only swap a dedicated label span's text, never the button's full content —
+    // buttons that also contain an icon <svg> would otherwise lose it permanently on
+    // the first click (textContent replacement removes child elements, not just text).
+    const label = btn.querySelector(".copy-label-text");
+    const original = label ? label.textContent : null;
+    if (label) label.textContent = "Copied";
+
     setTimeout(function () {
       btn.classList.remove("copied");
-      if (btn.hasAttribute("data-copy-label")) {
-        btn.textContent = original;
-      }
+      if (label && original !== null) label.textContent = original;
     }, 1500);
   });
 });
