@@ -39,11 +39,11 @@
   </div>
   {{else if .CloudflareConnected}}
   <p class="text-muted" style="margin-top:14px;margin-bottom:0;">
-    Cloudflare is connected, but no zone matching {{.Selected}} was found in that account — configure manually below, or connect the right account in <a href="/settings">Settings</a>.
+    Cloudflare is connected, but no zone matching {{.Selected}} was found in that account — configure manually below, or connect the right account on the <a href="/domains">Domains</a> page.
   </p>
   {{else}}
   <p class="text-muted" style="margin-top:14px;margin-bottom:0;">
-    Connect Cloudflare in <a href="/settings">Settings</a> to auto-configure these records instead of adding them by hand.
+    Connect Cloudflare on the <a href="/domains">Domains</a> page to auto-configure these records instead of adding them by hand.
   </p>
   {{end}}
 </div>

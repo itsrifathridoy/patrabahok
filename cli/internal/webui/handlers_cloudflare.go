@@ -50,7 +50,7 @@ func (s *Server) handleCloudflareConnect(w http.ResponseWriter, r *http.Request)
 	if token == "" {
 		data := s.cloudflareSectionData(r)
 		data.Error = "API token is required."
-		renderPartial(w, "settings", "cloudflare_section", data)
+		renderPartial(w, "domains", "cloudflare_section", data)
 		return
 	}
 
@@ -59,18 +59,18 @@ func (s *Server) handleCloudflareConnect(w http.ResponseWriter, r *http.Request)
 	if err := cloudflare.New(token).VerifyToken(ctx); err != nil {
 		data := s.cloudflareSectionData(r)
 		data.Error = "Could not verify this token with Cloudflare: " + err.Error()
-		renderPartial(w, "settings", "cloudflare_section", data)
+		renderPartial(w, "domains", "cloudflare_section", data)
 		return
 	}
 
 	if err := s.cloudflare.SetAPIToken(r.Context(), token); err != nil {
 		data := s.cloudflareSectionData(r)
 		data.Error = "Token verified, but saving it failed: " + err.Error()
-		renderPartial(w, "settings", "cloudflare_section", data)
+		renderPartial(w, "domains", "cloudflare_section", data)
 		return
 	}
 
-	renderPartial(w, "settings", "cloudflare_section", s.cloudflareSectionData(r))
+	renderPartial(w, "domains", "cloudflare_section", s.cloudflareSectionData(r))
 }
 
 // handleCloudflareOAuthClientSave stores the admin's own Cloudflare OAuth client
@@ -86,23 +86,23 @@ func (s *Server) handleCloudflareOAuthClientSave(w http.ResponseWriter, r *http.
 	if clientID == "" || clientSecret == "" {
 		data := s.cloudflareSectionData(r)
 		data.Error = "Client ID and Client Secret are both required."
-		renderPartial(w, "settings", "cloudflare_section", data)
+		renderPartial(w, "domains", "cloudflare_section", data)
 		return
 	}
 	if err := s.cloudflare.SetOAuthClient(r.Context(), clientID, clientSecret); err != nil {
 		data := s.cloudflareSectionData(r)
 		data.Error = "Could not save the OAuth client: " + err.Error()
-		renderPartial(w, "settings", "cloudflare_section", data)
+		renderPartial(w, "domains", "cloudflare_section", data)
 		return
 	}
-	renderPartial(w, "settings", "cloudflare_section", s.cloudflareSectionData(r))
+	renderPartial(w, "domains", "cloudflare_section", s.cloudflareSectionData(r))
 }
 
 // handleCloudflareAuthorize sends the browser to Cloudflare's consent screen.
 func (s *Server) handleCloudflareAuthorize(w http.ResponseWriter, r *http.Request) {
 	oc, ok, err := s.cloudflare.OAuthClientFor(r.Context(), cloudflareRedirectURI(r))
 	if err != nil || !ok {
-		http.Redirect(w, r, "/settings?cferror=noclient", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=noclient", http.StatusSeeOther)
 		return
 	}
 
@@ -130,22 +130,22 @@ func (s *Server) handleCloudflareCallback(w http.ResponseWriter, r *http.Request
 
 	q := r.URL.Query()
 	if errMsg := q.Get("error"); errMsg != "" {
-		http.Redirect(w, r, "/settings?cferror="+errMsg, http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror="+errMsg, http.StatusSeeOther)
 		return
 	}
 	if err != nil || q.Get("state") == "" || q.Get("state") != stateCookie.Value {
-		http.Redirect(w, r, "/settings?cferror=state_mismatch", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=state_mismatch", http.StatusSeeOther)
 		return
 	}
 	code := q.Get("code")
 	if code == "" {
-		http.Redirect(w, r, "/settings?cferror=no_code", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=no_code", http.StatusSeeOther)
 		return
 	}
 
 	oc, ok, err := s.cloudflare.OAuthClientFor(r.Context(), cloudflareRedirectURI(r))
 	if err != nil || !ok {
-		http.Redirect(w, r, "/settings?cferror=noclient", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=noclient", http.StatusSeeOther)
 		return
 	}
 
@@ -153,15 +153,15 @@ func (s *Server) handleCloudflareCallback(w http.ResponseWriter, r *http.Request
 	defer cancel()
 	result, err := oc.ExchangeCode(ctx, code)
 	if err != nil {
-		http.Redirect(w, r, "/settings?cferror=exchange_failed", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=exchange_failed", http.StatusSeeOther)
 		return
 	}
 	if err := s.cloudflare.SaveOAuthCallback(r.Context(), result); err != nil {
-		http.Redirect(w, r, "/settings?cferror=save_failed", http.StatusSeeOther)
+		http.Redirect(w, r, "/domains?cferror=save_failed", http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/settings?cfconnected=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/domains?cfconnected=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleCloudflareDisconnect(w http.ResponseWriter, r *http.Request) {
@@ -169,5 +169,24 @@ func (s *Server) handleCloudflareDisconnect(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	renderPartial(w, "settings", "cloudflare_section", s.cloudflareSectionData(r))
+	renderPartial(w, "domains", "cloudflare_section", s.cloudflareSectionData(r))
+}
+
+func cloudflareErrorMessage(code string) string {
+	switch code {
+	case "noclient":
+		return "No Cloudflare OAuth client is configured yet — save your Client ID and Client Secret first."
+	case "state_mismatch":
+		return "The Cloudflare authorization response didn't match — please try connecting again."
+	case "no_code":
+		return "Cloudflare didn't return an authorization code — please try connecting again."
+	case "exchange_failed":
+		return "Could not complete the Cloudflare authorization — check the Client ID/Secret and redirect URL, then try again."
+	case "save_failed":
+		return "Authorized with Cloudflare, but saving the tokens failed — try connecting again."
+	case "access_denied":
+		return "Cloudflare authorization was denied or cancelled."
+	default:
+		return "Cloudflare authorization failed (" + code + ")."
+	}
 }

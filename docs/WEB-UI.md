@@ -42,7 +42,9 @@ other admins) from the **Admins** page or `patrabahok webadmin add/list/remove`.
 - **Overview** — live counts (domains/mailboxes/aliases/tokens), which services are up, mail
   queue state, and disk usage, all in one glance
 - **Domains** — add/remove domains; adding one shows a "Configure DNS & verify →" prompt straight
-  into DNS Analysis for that domain
+  into DNS Analysis for that domain, plus a one-click "Auto-configure via Cloudflare" button right
+  there if a matching zone is found. Also where you connect Cloudflare in the first place — see
+  below.
 - **Mailboxes** — add/remove mailboxes, reset passwords, set quota at creation
 - **Aliases** — add/remove forwarding rules
 - **DNS analysis** — the step-by-step DNS records a domain needs (A/MX/SPF/DKIM/DMARC), plus a
@@ -78,12 +80,15 @@ has no separate files to keep in sync with the binary.
 
 ## Cloudflare integration
 
-Connect an account from **Settings** to auto-configure DNS on the DNS Analysis page instead of
-copying records by hand. Two ways to connect:
+Connect an account from the **Domains** page (not Settings — the connect flow lives right where
+you add domains, so it's there the moment you need it, and a one-click "Auto-configure via
+Cloudflare" button appears in the post-add confirmation whenever the newly added domain's zone is
+found in the connected account) to auto-configure DNS on the DNS Analysis page instead of copying
+records by hand. Two ways to connect:
 
 - **OAuth (recommended)** — register an OAuth client under your own Cloudflare account (Manage
   Account → OAuth clients → Create client, Authorization Code grant, redirect URL = the one shown
-  in Settings, scoped to DNS Write + Zone Read), paste its Client ID/Secret, then click **Connect
+  on the Domains page, scoped to DNS Write + Zone Read), paste its Client ID/Secret, then click **Connect
   with Cloudflare** to complete Cloudflare's own consent screen. Access tokens are refreshed
   automatically using the stored refresh token.
 - **API token** — simpler, no redirect URL to register: create a scoped token at Cloudflare → My

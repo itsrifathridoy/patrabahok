@@ -57,6 +57,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /domains", s.requireAuth(s.handleDomainsPage))
 	s.mux.HandleFunc("POST /domains", s.requireAuth(s.handleDomainAdd))
 	s.mux.HandleFunc("DELETE /domains/{name}", s.requireAuth(s.handleDomainDelete))
+	s.mux.HandleFunc("POST /domains/cloudflare-apply", s.requireAuth(s.handleDomainsCloudflareApply))
 
 	s.mux.HandleFunc("GET /mailboxes", s.requireAuth(s.handleMailboxesPage))
 	s.mux.HandleFunc("POST /mailboxes", s.requireAuth(s.handleMailboxAdd))
