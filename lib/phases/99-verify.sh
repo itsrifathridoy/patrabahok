@@ -34,7 +34,7 @@ phase_run() {
   fi
 
   local svc
-  for svc in postfix dovecot rspamd redis-server clamav-daemon fail2ban unbound mariadb; do
+  for svc in postfix dovecot rspamd redis-server clamav-daemon fail2ban unbound mariadb patrabahokd; do
     if systemctl is-active --quiet "$svc"; then
       log_ok "service active: $svc"
     else
@@ -42,6 +42,15 @@ phase_run() {
       ok=0
     fi
   done
+
+  if [ -S /run/patrabahok/api.sock ]; then
+    if curl -fsS --unix-socket /run/patrabahok/api.sock http://localhost/healthz >/dev/null 2>&1; then
+      log_ok "patrabahokd API responding on /run/patrabahok/api.sock"
+    else
+      log_error "patrabahokd API socket exists but did not respond to /healthz"
+      ok=0
+    fi
+  fi
 
   if [ -n "$domain" ] && command -v patrabahok >/dev/null 2>&1; then
     log_info "Running a loopback send/receive test for ${domain}..."

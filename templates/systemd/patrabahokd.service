@@ -1,0 +1,20 @@
+[Unit]
+Description=patrabahok local management API
+After=network.target mariadb.service
+Requires=mariadb.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/patrabahokd
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=patrabahok
+RuntimeDirectoryMode=0755
+User=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/mail/vhosts
+
+[Install]
+WantedBy=multi-user.target

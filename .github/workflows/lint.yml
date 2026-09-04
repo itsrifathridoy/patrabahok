@@ -14,3 +14,13 @@ jobs:
         run: sudo apt-get update -y && sudo apt-get install -y shellcheck
       - name: Run shellcheck
         run: bash tests/shellcheck.sh
+
+  govet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+      - name: Run govet
+        run: bash tests/govet.sh

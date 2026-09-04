@@ -15,6 +15,8 @@ export PATRABAHOK_INSTALLER_VERSION
 . "$PATRABAHOK_HOME/lib/core/os.sh"
 # shellcheck source=lib/core/state.sh
 . "$PATRABAHOK_HOME/lib/core/state.sh"
+# shellcheck source=lib/core/migrate.sh
+. "$PATRABAHOK_HOME/lib/core/migrate.sh"
 
 PATRABAHOK_PHASES_DIR="$PATRABAHOK_HOME/lib/phases"
 
@@ -75,6 +77,12 @@ cmd_install() {
   fi
 
   state_init
+
+  # Runs on every invocation, independent of which phases are already marked done, so a
+  # later release's new schema migration reaches an already-installed server on upgrade
+  # instead of being silently skipped because 30-database is already "done". No-ops
+  # harmlessly on a fresh install before MariaDB/the database exist yet.
+  apply_pending_migrations
 
   local phase_file phase_name rc
   for phase_file in "$PATRABAHOK_PHASES_DIR"/*.sh; do

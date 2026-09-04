@@ -8,7 +8,7 @@ command -v shellcheck >/dev/null 2>&1 || {
   exit 1
 }
 
-files=(install.sh bin/patrabahok-installer cli/patrabahok)
+files=(install.sh bin/patrabahok-installer)
 while IFS= read -r -d '' f; do files+=("$f"); done < <(find lib -name '*.sh' -print0)
 
 fail=0

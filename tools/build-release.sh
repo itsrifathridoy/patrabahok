@@ -14,7 +14,7 @@ mkdir -p "dist/${STAGE_NAME}"
 
 cp -r bin lib templates sql cli docs "dist/${STAGE_NAME}/"
 cp VERSION LICENSE README.md CHANGELOG.md install.sh "dist/${STAGE_NAME}/"
-chmod +x "dist/${STAGE_NAME}/bin/patrabahok-installer" "dist/${STAGE_NAME}/cli/patrabahok" "dist/${STAGE_NAME}/install.sh"
+chmod +x "dist/${STAGE_NAME}/bin/patrabahok-installer" "dist/${STAGE_NAME}/install.sh"
 
 (
   cd dist

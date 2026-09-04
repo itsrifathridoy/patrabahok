@@ -4,7 +4,8 @@ A production-oriented, self-hosted mail server installer for Ubuntu 24.04/22.04 
 Debian 12. One command
 sets up Postfix, Dovecot, MariaDB (virtual multi-domain mailboxes), Rspamd + ClamAV (spam
 scoring, DKIM signing/verification, DMARC, antivirus), Let's Encrypt TLS, ufw + fail2ban, and
-a local recursive resolver — plus a `patrabahok` CLI for day-2 domain/mailbox management.
+a local recursive resolver — plus a `patrabahok` CLI and a local `patrabahokd` API for day-2
+domain/mailbox management.
 
 ```
 curl -sSL https://patrabahok.com/install.sh | sh -s -- --yes
@@ -24,7 +25,8 @@ for exactly what the bootstrap does and how it verifies what it downloads.
 - postscreen + Spamhaus DNSBL greylisting at the connection stage, via a local `unbound`
   recursive resolver (not your provider's default DNS, for Spamhaus fair-use compliance)
 - ufw (default-deny) + fail2ban (sshd, postfix, dovecot jails, progressive ban times)
-- `patrabahok` CLI: `domain`, `mailbox`, `alias`, `dkim`, `dns`, `queue`, `status`
+- `patrabahok` CLI + `patrabahokd` local API (Unix socket, token-scoped): `domain`, `mailbox`,
+  `alias`, `dkim`, `dns`, `queue`, `status`
 
 ## Requirements
 

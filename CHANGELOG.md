@@ -11,6 +11,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   assumed, since a third-party repo package could name them differently.
   Ubuntu 22.04 and Debian 12 are implemented but not yet live-verified on real
   servers the way Ubuntu 24.04 was (see `docs/ROADMAP.md`).
+- Go CLI/API: `cli/` is now a Go module. `patrabahok` (CLI) and `patrabahokd` (a
+  systemd-managed local API daemon on a Unix socket, bearer-token authenticated with
+  per-scope permissions) both link the same business logic against the database with
+  true parameterized queries, replacing the Bash CLI. Built from source at install
+  time (temporary `golang-go` toolchain, purged after a static `CGO_ENABLED=0` build)
+  rather than distributed as a prebuilt release binary — see `docs/ROADMAP.md`.
+  New `api_tokens` table (schema migration `002_api_tokens.sql`).
 
 ## [0.1.0] - 2026-09-04
 

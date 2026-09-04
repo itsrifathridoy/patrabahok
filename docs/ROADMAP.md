@@ -11,14 +11,23 @@ at runtime rather than assumed). This has **not yet been live-tested** on real U
 Debian 12 servers the way Ubuntu 24.04 was — that live-testing pass (the same process that found
 and fixed 8 real bugs on 24.04) is still needed before calling these two targets verified.
 
-## Go CLI + local API daemon
-Replace/extend the Bash `patrabahok` CLI with a Go binary (`patrabahok`) plus a `patrabahokd`
-daemon exposing a local Unix-socket JSON API (token-authenticated, scoped permissions). Gives
-true parameterized DB queries (closing the SQL-injection-by-construction risk the Bash CLI
-mitigates only via input validation/escaping), real unit tests, and a stable integration point
-for future tooling (e.g. a future web UI, automation, monitoring hooks). Distributed the same
-way as the installer itself: cross-compiled static binaries, checksummed, released alongside
-each tag.
+## Go CLI + local API daemon — implemented, pending live verification
+`cli/` is now a Go module: `patrabahok` (CLI) and `patrabahokd` (a systemd-managed local API
+daemon on a Unix socket, token-authenticated with per-scope permissions) both link the same
+`cli/internal/mailbox` business logic against the database with true parameterized queries. See
+[CLI.md](CLI.md) for the full command/endpoint reference.
+
+Two things not yet done, both real gaps:
+- **Not yet live-tested.** Built and compiled correctness-checked, but not run end-to-end on a
+  real server the way the Bash CLI and the core installer were — needs the same live-testing
+  pass before being called verified.
+- **Built from source at install time, not distributed as a prebuilt binary.** The installer
+  temporarily installs `golang-go`, builds both binaries (`CGO_ENABLED=0`, so they're fully
+  static and the toolchain can be safely removed afterward), then purges the toolchain. This
+  deviates from the original plan of cross-compiled, checksummed, pre-built release binaries
+  (the same trust model as `install.sh` itself) — that's a real follow-up, not just a nice-to-have,
+  since build-from-source means every install re-runs `go build` rather than installing a
+  binary that went through the same signed-release path as everything else.
 
 ## PostfixAdmin
 Optional web UI (PHP + Nginx + PHP-FPM) for managing domains/mailboxes/aliases against the same

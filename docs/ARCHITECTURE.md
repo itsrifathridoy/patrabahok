@@ -12,7 +12,7 @@
 | Firewall | ufw | Approachable default-deny for a single-role server; integrates with fail2ban's `ufw` action |
 | DNS resolver | local `unbound` | DNSBL fair-use (Spamhaus) + latency; system-wide via `/etc/resolv.conf` |
 | Intrusion prevention | fail2ban | jails for sshd, postfix, dovecot with progressive ban times |
-| CLI | Bash (`cli/patrabahok`) | No extra runtime to patch on a hardened mail server; a Go CLI/API daemon is a roadmap item once the operational surface grows |
+| CLI/API | Go (`cli/` module — `patrabahok` CLI + `patrabahokd` local API daemon) | True parameterized DB queries, real type-checked code, a stable local API for automation. Built from source at install time (not yet distributed as a prebuilt release binary — see ROADMAP.md) |
 
 ## Why Rspamd instead of Amavis/SpamAssassin/OpenDKIM/OpenDMARC
 
@@ -64,7 +64,8 @@ unverified remote code itself.
 
 - Ubuntu 22.04/Debian 12 support is implemented but not yet live-verified (Ubuntu 24.04 is)
 - No PostfixAdmin / Roundcube web UIs yet
-- CLI is Bash, not the planned Go CLI + local API daemon
+- The Go CLI/API is implemented but not yet live-verified, and is built from source at install
+  time rather than distributed as a prebuilt, checksummed release binary
 - Per-mailbox quota is collected but not yet enforced dynamically (a single global default
   quota is enforced via Dovecot's static quota plugin)
 - No MTA-STS policy hosting (the DNS record text is printed, but you must host the policy
