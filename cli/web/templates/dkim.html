@@ -51,7 +51,12 @@
 <div class="card">
   <h2>Records to add</h2>
   {{if .RawRecords}}
-  <pre class="dns-record">{{.RawRecords}}</pre>
+  <div class="copy-wrap">
+    <button type="button" class="copy-btn" data-copy="{{.RawRecords}}" data-copy-label="Copy all">
+      {{template "icon-copy"}} Copy all
+    </button>
+    <pre class="dns-record">{{.RawRecords}}</pre>
+  </div>
   {{else}}
   <div class="empty">No records generated yet for this domain.</div>
   {{end}}

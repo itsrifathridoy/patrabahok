@@ -1,69 +1,162 @@
 {{define "content"}}
-<h1>Overview</h1>
-<p class="subtitle">{{if .MailHost}}{{.MailHost}}{{else}}Your mail server{{end}} at a glance.</p>
+<section class="hero">
+  <div>
+    <div class="status-pill">
+      <span class="dot"></span>
+      {{if eq .ServicesUp .ServicesTotal}}All systems operational{{else}}{{.ServicesUp}} of {{.ServicesTotal}} services running{{end}}
+    </div>
+    <h1>Welcome back, {{.Username}}</h1>
+    <p class="lede">{{if .MailHost}}Here's what's happening on {{.MailHost}}.{{else}}Here's what's happening with your mail infrastructure.{{end}}</p>
+  </div>
+  <a href="/domains" class="btn btn-primary">{{template "icon-globe"}} Add domain</a>
+</section>
 
 <div class="stat-grid">
   <a href="/domains" class="stat-card">
+    <div class="stat-icon stat-icon-blue">{{template "icon-globe"}}</div>
     <div class="stat-value">{{.DomainCount}}</div>
     <div class="stat-label">Domains</div>
   </a>
   <a href="/mailboxes" class="stat-card">
+    <div class="stat-icon stat-icon-emerald">{{template "icon-mail"}}</div>
     <div class="stat-value">{{.MailboxCount}}</div>
     <div class="stat-label">Mailboxes</div>
   </a>
   <a href="/aliases" class="stat-card">
+    <div class="stat-icon stat-icon-violet">{{template "icon-forward"}}</div>
     <div class="stat-value">{{.AliasCount}}</div>
     <div class="stat-label">Aliases</div>
   </a>
   <a href="/tokens" class="stat-card">
+    <div class="stat-icon stat-icon-amber">{{template "icon-key"}}</div>
     <div class="stat-value">{{.TokenCount}}</div>
     <div class="stat-label">API tokens</div>
   </a>
 </div>
 
-<div class="card">
-  <div class="toolbar">
-    <h2 class="mt-0 mb-0">Services</h2>
-    <a href="/diagnostics" class="btn btn-sm">Full diagnostics →</a>
-  </div>
-  <p class="text-muted" style="margin-top:-6px;">{{.ServicesUp}} of {{.ServicesTotal}} running</p>
-  <div class="chip-row">
-    {{range .Services}}
-    <span class="badge {{if .Active}}badge-success{{else}}badge-error{{end}}">{{.Name}}</span>
-    {{end}}
-  </div>
-</div>
-
-<div class="stat-grid stat-grid-2">
-  <div class="card">
-    <h2>Mail queue</h2>
-    {{if .QueueKnown}}
-      {{if .QueueEmpty}}
-      <span class="badge badge-success">empty</span>
-      {{else}}
-      <span class="badge badge-warn">has messages</span>
+<section class="stat-grid stat-grid-2" style="align-items:start;">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Service status</h2>
+        <div class="panel-sub">{{.ServicesUp}} of {{.ServicesTotal}} running</div>
+      </div>
+      <a href="/diagnostics" class="btn btn-sm">Full diagnostics</a>
+    </div>
+    <div class="panel-body">
+      {{range .Services}}
+      <div class="health-row">
+        <div class="left">
+          {{template "icon-activity"}}
+          <span class="name">{{.Name}}</span>
+        </div>
+        <span class="health-status {{if .Active}}ok{{else}}bad{{end}}">
+          <span class="dot"></span>{{if .Active}}Operational{{else}}Down{{end}}
+        </span>
+      </div>
       {{end}}
-      <a href="/queue" style="margin-left:8px;">View queue →</a>
-    {{else}}
-    <div class="empty">Queue status unavailable.</div>
-    {{end}}
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Disk usage (/)</h2>
-    {{if .DiskKnown}}
-    <div class="progress"><div class="progress-bar" style="width:{{printf "%.0f" .Disk.UsedPercent}}%;"></div></div>
-    <p class="text-muted" style="margin:6px 0 0;">{{printf "%.0f" .Disk.UsedPercent}}% used</p>
-    {{else}}
-    <div class="empty">Disk info unavailable.</div>
-    {{end}}
-  </div>
-</div>
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>System health</h2>
+        <div class="panel-sub">Current infrastructure status</div>
+      </div>
+    </div>
+    <div class="panel-body">
+      {{if eq .ServicesUp .ServicesTotal}}
+      <div class="all-healthy-banner">
+        <div class="check-circle">{{template "icon-check"}}</div>
+        <div>
+          <div class="title">Everything is healthy</div>
+          <div class="sub">No active incidents detected</div>
+        </div>
+      </div>
+      {{end}}
 
-<div class="card">
-  <h2>Quick links</h2>
-  <p><a href="/dkim">DNS analysis &amp; domain setup steps →</a></p>
-  <p><a href="/diagnostics">System diagnostics &amp; recent issues →</a></p>
-  <p><a href="/tokens">Manage API tokens →</a></p>
-</div>
+      <div class="health-row">
+        <div class="left">{{template "icon-list"}}<span class="name">Mail queue</span></div>
+        {{if .QueueKnown}}
+          {{if .QueueEmpty}}<span class="health-status ok"><span class="dot"></span>Empty</span>
+          {{else}}<span class="health-status bad"><span class="dot"></span>Has messages</span>{{end}}
+        {{else}}<span class="text-muted" style="font-size:12px;">Unknown</span>{{end}}
+      </div>
+
+      {{if .DiskKnown}}
+      <div style="padding:11px 6px;">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px;">
+          <span>Disk usage (/)</span>
+          <span class="text-muted">{{printf "%.0f" .Disk.UsedPercent}}%</span>
+        </div>
+        <div class="progress"><div class="progress-bar" style="width:{{printf "%.0f" .Disk.UsedPercent}}%;"></div></div>
+      </div>
+      {{end}}
+
+      <a href="/diagnostics" class="btn" style="width:100%;justify-content:center;margin-top:10px;">
+        View diagnostics {{template "icon-arrow-right"}}
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:24px;">
+  <div class="panel-header">
+    <div>
+      <h2>Quick actions</h2>
+      <div class="panel-sub">Manage your mail infrastructure</div>
+    </div>
+  </div>
+  <div class="panel-body" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+    <a href="/domains" class="quick-action">
+      <div class="icon-box">{{template "icon-globe"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">Add domain</div>
+        <div class="qa-sub">Connect a new domain</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+    <a href="/mailboxes" class="quick-action">
+      <div class="icon-box">{{template "icon-mail"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">Create mailbox</div>
+        <div class="qa-sub">Add a new email address</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+    <a href="/diagnostics" class="quick-action">
+      <div class="icon-box">{{template "icon-activity"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">Run diagnostics</div>
+        <div class="qa-sub">Check server health</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+    <a href="/tokens" class="quick-action">
+      <div class="icon-box">{{template "icon-key"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">API tokens</div>
+        <div class="qa-sub">Manage API access</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+    <a href="/dkim" class="quick-action">
+      <div class="icon-box">{{template "icon-shield"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">DNS analysis</div>
+        <div class="qa-sub">Verify records, auto-configure via Cloudflare</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+    <a href="/admins" class="quick-action">
+      <div class="icon-box">{{template "icon-users"}}</div>
+      <div class="flex-1">
+        <div class="qa-title">Admins</div>
+        <div class="qa-sub">Manage dashboard access</div>
+      </div>
+      <span class="arrow">{{template "icon-arrow-up-right"}}</span>
+    </a>
+  </div>
+</section>
 {{end}}

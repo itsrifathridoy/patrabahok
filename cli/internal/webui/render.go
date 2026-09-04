@@ -29,9 +29,21 @@ var pageFiles = map[string]string{
 var pageTemplates = map[string]*template.Template{}
 var loginTemplate *template.Template
 
+// mailHostFunc backs the {{mailHost}} template function (used by the sidebar's server
+// status card) — a template func rather than a Base field so every page's handler
+// doesn't need to remember to populate it.
+func mailHostFunc() string {
+	host, _, _ := stateConfigStrings()
+	return host
+}
+
+var funcMap = template.FuncMap{
+	"mailHost": mailHostFunc,
+}
+
 func init() {
 	for name, file := range pageFiles {
-		pageTemplates[name] = template.Must(template.ParseFS(web.TemplatesFS, "templates/layout.html", file))
+		pageTemplates[name] = template.Must(template.New("layout.html").Funcs(funcMap).ParseFS(web.TemplatesFS, "templates/layout.html", file))
 	}
 	loginTemplate = template.Must(template.ParseFS(web.TemplatesFS, "templates/login.html"))
 }
