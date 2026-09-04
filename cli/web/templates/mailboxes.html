@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>Mailboxes</h1>
-<p class="subtitle">Email accounts across all your domains.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-emerald">{{template "icon-mail"}}</div>
+  <div>
+    <h1>Mailboxes</h1>
+    <p class="subtitle">Email accounts across all your domains.</p>
+  </div>
+</div>
 
 <div class="card">
   <h2>Add a mailbox</h2>
@@ -27,7 +32,7 @@
         <label for="quota">Quota</label>
         <input type="text" id="quota" name="quota" value="1G" placeholder="1G">
       </div>
-      <button type="submit" class="btn btn-primary">Add mailbox</button>
+      <button type="submit" class="btn btn-primary">{{template "icon-mail"}} Add mailbox</button>
     </div>
   </form>
   {{end}}

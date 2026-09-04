@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>API Tokens</h1>
-<p class="subtitle">Bearer tokens for <code>patrabahokd</code>'s JSON API. Scopes: <code>domain</code>, <code>mailbox</code>, <code>alias</code>, <code>dkim</code>, <code>dns</code>, <code>queue</code>, <code>status</code>, or <code>*</code> for all.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-violet">{{template "icon-key"}}</div>
+  <div>
+    <h1>API Tokens</h1>
+    <p class="subtitle">Bearer tokens for <code>patrabahokd</code>'s JSON API. Scopes: <code>domain</code>, <code>mailbox</code>, <code>alias</code>, <code>dkim</code>, <code>dns</code>, <code>queue</code>, <code>status</code>, or <code>*</code> for all.</p>
+  </div>
+</div>
 
 <div class="card">
   <h2>Create a token</h2>
@@ -14,7 +19,7 @@
         <label for="scopes">Scopes (comma-separated, default *)</label>
         <input type="text" id="scopes" name="scopes" placeholder="domain,mailbox">
       </div>
-      <button type="submit" class="btn btn-primary">Create token</button>
+      <button type="submit" class="btn btn-primary">{{template "icon-key"}} Create token</button>
     </div>
   </form>
 </div>

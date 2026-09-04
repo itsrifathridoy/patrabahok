@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>DNS Analysis</h1>
-<p class="subtitle">The DNS records each domain needs, and live verification against what's actually published.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-emerald">{{template "icon-shield"}}</div>
+  <div>
+    <h1>DNS Analysis</h1>
+    <p class="subtitle">The DNS records each domain needs, and live verification against what's actually published.</p>
+  </div>
+</div>
 
 {{if not .Domains}}
 <div class="card"><p class="text-muted">Add a domain first.</p></div>

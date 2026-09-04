@@ -436,6 +436,28 @@ h2 {
   font-size: 13px;
 }
 
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.page-header h1 { margin-bottom: 2px; }
+.page-header .subtitle { margin-bottom: 0; }
+
+.page-header-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.page-header-icon svg { width: 20px; height: 20px; }
+
 .card {
   background: var(--surface);
   border: 1px solid var(--border);

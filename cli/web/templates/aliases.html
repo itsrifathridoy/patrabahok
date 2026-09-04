@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>Aliases</h1>
-<p class="subtitle">Forward mail from one address to another.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-violet">{{template "icon-forward"}}</div>
+  <div>
+    <h1>Aliases</h1>
+    <p class="subtitle">Forward mail from one address to another.</p>
+  </div>
+</div>
 
 <div class="card">
   <h2>Add an alias</h2>
@@ -14,7 +19,7 @@
         <label for="destination">To (target)</label>
         <input type="text" id="destination" name="destination" placeholder="you@example.com" required>
       </div>
-      <button type="submit" class="btn btn-primary">Add alias</button>
+      <button type="submit" class="btn btn-primary">{{template "icon-forward"}} Add alias</button>
     </div>
   </form>
 </div>

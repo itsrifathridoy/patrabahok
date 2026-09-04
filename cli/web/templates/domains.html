@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>Domains</h1>
-<p class="subtitle">Domains your mail server accepts and sends mail for.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-blue">{{template "icon-globe"}}</div>
+  <div>
+    <h1>Domains</h1>
+    <p class="subtitle">Domains your mail server accepts and sends mail for.</p>
+  </div>
+</div>
 
 <div class="card">
   <h2>Add a domain</h2>
@@ -10,7 +15,7 @@
         <label for="name">Domain</label>
         <input type="text" id="name" name="name" placeholder="example.com" required>
       </div>
-      <button type="submit" class="btn btn-primary">Add domain</button>
+      <button type="submit" class="btn btn-primary">{{template "icon-globe"}} Add domain</button>
     </div>
   </form>
 </div>

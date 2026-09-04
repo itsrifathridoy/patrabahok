@@ -1,6 +1,11 @@
 {{define "content"}}
-<h1>Admins</h1>
-<p class="subtitle">Accounts that can sign in to this dashboard.</p>
+<div class="page-header">
+  <div class="page-header-icon stat-icon-amber">{{template "icon-users"}}</div>
+  <div>
+    <h1>Admins</h1>
+    <p class="subtitle">Accounts that can sign in to this dashboard.</p>
+  </div>
+</div>
 
 <div class="card">
   <h2>Add an admin</h2>
@@ -14,7 +19,7 @@
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required minlength="8">
       </div>
-      <button type="submit" class="btn btn-primary">Add admin</button>
+      <button type="submit" class="btn btn-primary">{{template "icon-users"}} Add admin</button>
     </div>
   </form>
 </div>
