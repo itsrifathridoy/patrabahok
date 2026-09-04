@@ -62,10 +62,10 @@ unverified remote code itself.
 
 ## Known MVP limitations (see ROADMAP.md)
 
-- Ubuntu 22.04/Debian 12 support is implemented but not yet live-verified (Ubuntu 24.04 is)
 - No PostfixAdmin / Roundcube web UIs yet
-- The Go CLI/API is implemented but not yet live-verified, and is built from source at install
-  time rather than distributed as a prebuilt, checksummed release binary
+- The Go CLI/API is live-verified on all three supported OSes, but is built from source at
+  install time (pinned/checksummed Go toolchain) rather than distributed as a prebuilt,
+  checksummed release binary
 - Per-mailbox quota is collected but not yet enforced dynamically (a single global default
   quota is enforced via Dovecot's static quota plugin)
 - No MTA-STS policy hosting (the DNS record text is printed, but you must host the policy

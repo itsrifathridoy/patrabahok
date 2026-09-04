@@ -30,8 +30,8 @@ for exactly what the bootstrap does and how it verifies what it downloads.
 
 ## Requirements
 
-- A fresh Ubuntu 24.04, Ubuntu 22.04, or Debian 12 server, run as root (Ubuntu 24.04 is the
-  most battle-tested target so far — see [docs/ROADMAP.md](docs/ROADMAP.md))
+- A fresh Ubuntu 24.04, Ubuntu 22.04, or Debian 12 server, run as root — all three are
+  live-tested end to end (see [docs/ROADMAP.md](docs/ROADMAP.md))
 - A domain you control, with the ability to add DNS records
 - Outbound port 25 not blocked by your VPS provider (the installer checks and warns)
 
@@ -55,16 +55,17 @@ non-interactive/scripted install, and how to add more domains and mailboxes afte
 - [docs/DNS-RECORDS.md](docs/DNS-RECORDS.md) — every DNS record explained
 - [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) — backup and disaster recovery
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failure signatures
-- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (PostfixAdmin, Roundcube, the
-  Go CLI/API daemon, mandatory release signing, VM-based CI, live verification on
-  Ubuntu 22.04/Debian 12)
+- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (PostfixAdmin, Roundcube,
+  a prebuilt/checksummed CLI release binary, mandatory release signing, VM-based CI)
 
 ## Status
 
-This is an early release. It's built to be genuinely production-usable for a single-server,
-single-to-multi-domain mail setup, not a toy — Ubuntu 24.04 has been live-tested end to end
-(including real Gmail delivery with SPF/DKIM/DMARC all passing); Ubuntu 22.04 and Debian 12
-support is implemented but awaiting the same live-testing pass. Review
+This is an early release, but not an untested one. It's built to be genuinely
+production-usable for a single-server, single-to-multi-domain mail setup — Ubuntu 24.04,
+Ubuntu 22.04, and Debian 12 have each had a full clean install live-tested end to end
+(services, the `patrabahokd` API, and a real send→milter→LMTP→Maildir delivery test), and
+Ubuntu 24.04 additionally verified with a real Gmail delivery (SPF/DKIM/DMARC all passing).
+Review
 [docs/ROADMAP.md](docs/ROADMAP.md) for everything else intentionally out of scope so far.
 
 ## License

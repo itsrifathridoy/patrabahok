@@ -3,31 +3,39 @@
 The first release intentionally scopes down to a real, production-usable single-OS core. These
 are the deferred pieces, roughly in the order they're likely to land.
 
-## Multi-OS support — implemented, pending live verification
-Ubuntu 22.04 LTS and Debian 12 ("bookworm") are now handled by `lib/core/os.sh` and
-`lib/phases/10-packages.sh` (rspamd is installed separately with a fallback to the official
-Rspamd APT repo if a target's default repos lack it; the rspamd system user/group are detected
-at runtime rather than assumed). This has **not yet been live-tested** on real Ubuntu 22.04 or
-Debian 12 servers the way Ubuntu 24.04 was — that live-testing pass (the same process that found
-and fixed 8 real bugs on 24.04) is still needed before calling these two targets verified.
+## Done: multi-OS support, live-verified
+Ubuntu 24.04, Ubuntu 22.04, and Debian 12 all have a full clean install pass end to end
+(including the loopback delivery test and the `patrabahokd` API) on real servers. Live testing
+found and fixed two more real bugs beyond what 24.04-only testing had already caught:
+- Some minimal cloud images (seen on Debian 12) don't ship `rsyslog`, so `/var/log/auth.log`
+  and `/var/log/mail.log` never get created — fail2ban's sshd jail hard-fails its entire startup
+  without the former. `rsyslog` is now installed explicitly, and both log files are guaranteed
+  to exist before fail2ban starts (rsyslog creates them lazily on first matching event, which
+  may not have happened yet on a quiet fresh server).
+- The distro's own `golang-go` package version varies wildly and is often too old for this
+  module's Go 1.22 requirement (seen: Go 1.18 on Ubuntu 22.04, an old version on Debian 12 too).
+  Fixed by no longer depending on it at all — `95-cli` now downloads a pinned Go 1.22.2 toolchain
+  directly from go.dev into an ephemeral directory, SHA-256 checksum-verified the same way
+  `install.sh` verifies its own release, and removes it after the build.
 
-## Go CLI + local API daemon — implemented, pending live verification
-`cli/` is now a Go module: `patrabahok` (CLI) and `patrabahokd` (a systemd-managed local API
-daemon on a Unix socket, token-authenticated with per-scope permissions) both link the same
+rspamd's own package was present and current enough in all three targets' default repos, so the
+Rspamd-APT-repo fallback in `10-packages.sh` has not actually been exercised yet — it remains
+unverified insurance for a target where that might not hold.
+
+## Done: Go CLI + local API daemon, live-verified
+`cli/` is a Go module: `patrabahok` (CLI) and `patrabahokd` (a systemd-managed local API daemon
+on a Unix socket, token-authenticated with per-scope permissions) both link the same
 `cli/internal/mailbox` business logic against the database with true parameterized queries. See
-[CLI.md](CLI.md) for the full command/endpoint reference.
+[CLI.md](CLI.md) for the full command/endpoint reference. Live-tested across all three OS
+targets: every CLI command, and the API exercised over its real socket (401 without a token, 403
+on wrong scope, correct data on the right scope, token list/revoke).
 
-Two things not yet done, both real gaps:
-- **Not yet live-tested.** Built and compiled correctness-checked, but not run end-to-end on a
-  real server the way the Bash CLI and the core installer were — needs the same live-testing
-  pass before being called verified.
-- **Built from source at install time, not distributed as a prebuilt binary.** The installer
-  temporarily installs `golang-go`, builds both binaries (`CGO_ENABLED=0`, so they're fully
-  static and the toolchain can be safely removed afterward), then purges the toolchain. This
-  deviates from the original plan of cross-compiled, checksummed, pre-built release binaries
-  (the same trust model as `install.sh` itself) — that's a real follow-up, not just a nice-to-have,
-  since build-from-source means every install re-runs `go build` rather than installing a
-  binary that went through the same signed-release path as everything else.
+One real gap remains: **built from source at install time, not distributed as a prebuilt
+binary.** Even with a pinned/checksummed Go toolchain, this deviates from the original plan of
+cross-compiled, checksummed, pre-built release binaries (the same trust model as `install.sh`
+itself) — that's a real follow-up, not just a nice-to-have, since build-from-source means every
+install re-runs `go build` rather than installing a binary that went through the same
+signed-release path as everything else.
 
 ## PostfixAdmin
 Optional web UI (PHP + Nginx + PHP-FPM) for managing domains/mailboxes/aliases against the same

@@ -40,6 +40,14 @@ phase_run() {
   render_template "$PATRABAHOK_HOME/templates/fail2ban/jail.local.tmpl" /etc/fail2ban/jail.local \
     "ADMIN_EMAIL=${admin_email}"
 
+  # rsyslog (installed in phase 10) creates /var/log/auth.log and /var/log/mail.log on
+  # first matching event, not at startup — on a quiet fresh server that may not have
+  # happened yet. fail2ban's sshd jail hard-fails its whole startup if auth.log doesn't
+  # exist yet, so guarantee both files exist before starting it.
+  touch /var/log/auth.log /var/log/mail.log
+  chmod 640 /var/log/auth.log /var/log/mail.log
+  chown root:adm /var/log/auth.log /var/log/mail.log 2>/dev/null || true
+
   systemctl enable --now fail2ban >/dev/null 2>&1
   systemctl restart fail2ban
 

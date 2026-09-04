@@ -14,6 +14,7 @@ state_init
 # across all three targets.
 BASE_PACKAGES=(
   ca-certificates gnupg
+  rsyslog
   postfix postfix-pcre postfix-mysql
   dovecot-core dovecot-imapd dovecot-lmtpd dovecot-mysql dovecot-sieve
   mariadb-server mariadb-client
@@ -70,6 +71,11 @@ EOF
 
   log_info "Installing rspamd..."
   ensure_rspamd
+
+  # Some minimal cloud images (seen on Debian 12) don't ship rsyslog, so nothing writes
+  # /var/log/auth.log or /var/log/mail.log — fail2ban's sshd jail hard-fails without the
+  # former, and the postfix/dovecot jails silently never match without the latter.
+  systemctl enable --now rsyslog >/dev/null 2>&1 || true
 
   # Deliberately not stopping postfix/dovecot/rspamd here: each phase that owns one of
   # these services (50/60/70) already restarts it after rendering its own config, so a

@@ -3,19 +3,41 @@ set -euo pipefail
 PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=../core/log.sh
 . "$PATRABAHOK_HOME/lib/core/log.sh"
-# shellcheck source=../core/os.sh
-. "$PATRABAHOK_HOME/lib/core/os.sh"
 
-GO_INSTALLED_BY_US=0
+# Pinned upstream Go toolchain — deliberately NOT the distro's own golang-go package,
+# whose version varies wildly and is often far too old (seen: Go 1.18 on Ubuntu 22.04,
+# vs. this module's Go 1.22 requirement). Downloaded fresh into a private, ephemeral
+# directory and checksum-verified the same way install.sh verifies its own release —
+# never left on disk after the build. Bump both together when changing GO_VERSION:
+# checksums come from https://go.dev/dl/?mode=json&include=all for that exact version.
+GO_VERSION="1.22.2"
+GO_SHA256_AMD64="5901c52b7a78002aeff14a21f93e0f064f74ce1360fce51c6ee68cd471216a17"
+GO_SHA256_ARM64="36e720b2d564980c162a48c7e97da2e407dfcc4239e1e58d98082dfa2486a0c1"
+GO_TOOLCHAIN_DIR="/opt/patrabahok/.build-go"
 
 ensure_go() {
-  if command -v go >/dev/null 2>&1; then
-    return 0
+  local arch sha256 tarball url tmp
+  case "$(uname -m)" in
+    x86_64) arch=amd64; sha256="$GO_SHA256_AMD64" ;;
+    aarch64) arch=arm64; sha256="$GO_SHA256_ARM64" ;;
+    *) die "Unsupported CPU architecture for the Go toolchain: $(uname -m)" ;;
+  esac
+  tarball="go${GO_VERSION}.linux-${arch}.tar.gz"
+  url="https://go.dev/dl/${tarball}"
+
+  log_info "Downloading Go ${GO_VERSION} toolchain (${arch}) to build the CLI/API (removed afterward)..."
+  rm -rf "$GO_TOOLCHAIN_DIR"
+  mkdir -p "$GO_TOOLCHAIN_DIR"
+  tmp="$(mktemp -d)"
+  curl -fsSL -o "${tmp}/${tarball}" "$url" || die "Failed to download Go toolchain from ${url}"
+  if ! echo "${sha256}  ${tmp}/${tarball}" | sha256sum -c - >/dev/null 2>&1; then
+    rm -rf "$tmp"
+    die "Go toolchain checksum verification FAILED for ${tarball} — aborting, nothing built."
   fi
-  log_info "Installing a temporary Go toolchain to build the CLI/API (removed afterward)..."
-  apt_update
-  apt_install golang-go
-  GO_INSTALLED_BY_US=1
+  tar -C "$GO_TOOLCHAIN_DIR" --strip-components=1 -xzf "${tmp}/${tarball}" || die "Failed to extract Go toolchain."
+  rm -rf "$tmp"
+
+  export PATH="${GO_TOOLCHAIN_DIR}/bin:${PATH}"
 }
 
 build_go_binaries() {
@@ -42,11 +64,8 @@ build_go_binaries() {
 }
 
 cleanup_go() {
-  if [ "$GO_INSTALLED_BY_US" -eq 1 ]; then
-    log_info "Removing the temporary Go toolchain (compiled binaries are self-contained)..."
-    apt-get purge -y golang-go >/dev/null 2>&1 || true
-    apt-get autoremove -y >/dev/null 2>&1 || true
-  fi
+  log_info "Removing the temporary Go toolchain (compiled binaries are self-contained)..."
+  rm -rf "$GO_TOOLCHAIN_DIR"
 }
 
 phase_run() {
