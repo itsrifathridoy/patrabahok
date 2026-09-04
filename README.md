@@ -54,6 +54,7 @@ non-interactive/scripted install, and how to add more domains and mailboxes afte
 - [docs/INSTALL.md](docs/INSTALL.md) — full install walkthrough and options
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design and component choices
 - [docs/CLI.md](docs/CLI.md) — `patrabahok` command reference
+- [docs/API.md](docs/API.md) — `patrabahokd` JSON API reference (every endpoint, request/response bodies)
 - [docs/WEB-UI.md](docs/WEB-UI.md) — the admin dashboard: access, first login, security model
 - [docs/SECURITY.md](docs/SECURITY.md) — threat model and the curl\|sh trust model
 - [docs/DNS-RECORDS.md](docs/DNS-RECORDS.md) — every DNS record explained

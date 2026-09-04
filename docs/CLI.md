@@ -85,42 +85,14 @@ creation and cannot be recovered afterward — only its SHA-256 hash is stored (
 
 ## The `patrabahokd` API
 
-A local JSON API mirroring the CLI, for automation/integration use. Listens on a Unix domain
-socket at `/run/patrabahok/api.sock` by default (mode 0660, group `patrabahok`) — not a network
-port — so reaching it requires either local root or membership in the `patrabahok` group. Every
-request needs `Authorization: Bearer <token>` from `patrabahok api token create`.
+A local JSON API mirroring the CLI, for automation/integration use, built from the same Go module
+and business logic. Listens on a Unix domain socket at `/run/patrabahok/api.sock` by default (mode
+0660, group `patrabahok`) — not a network port. Every request needs
+`Authorization: Bearer <token>` from `patrabahok api token create`.
 
-```
-GET    /healthz                          # no auth
-GET    /v1/status
-GET    /v1/domains
-POST   /v1/domains                       {"name": "..."}
-DELETE /v1/domains/{name}
-GET    /v1/mailboxes?domain=...
-POST   /v1/mailboxes                     {"email": "...", "password": "...", "quota_bytes": 1073741824}
-DELETE /v1/mailboxes/{email}
-PUT    /v1/mailboxes/{email}/password    {"password": "..."}
-PUT    /v1/mailboxes/{email}/quota       {"quota": "2G"} or {"quota_bytes": 2147483648}
-GET    /v1/aliases?domain=...
-POST   /v1/aliases                       {"source": "...", "destination": "..."}
-DELETE /v1/aliases                       {"source": "...", "destination": "..."}
-GET    /v1/dkim/{domain}
-GET    /v1/dns/{domain}
-GET    /v1/queue
-POST   /v1/queue/flush
-```
-
-Example call over the socket with curl:
-
-```
-curl --unix-socket /run/patrabahok/api.sock \
-     -H "Authorization: Bearer $TOKEN" \
-     http://localhost/v1/domains
-```
-
-A TCP listener is available via `patrabahokd -tcp 127.0.0.1:8991` (systemd unit override) for
-setups where a Unix socket isn't practical — off by default, and never intended to be exposed
-beyond localhost. See [SECURITY.md](SECURITY.md) for the reasoning.
+Full endpoint reference (every route, request/response bodies, error shapes) is in
+[API.md](API.md) — kept separate from this CLI reference since it has its own audience
+(integrations/automation, not someone at a terminal).
 
 ## Scopes
 
