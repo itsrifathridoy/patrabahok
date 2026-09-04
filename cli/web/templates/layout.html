@@ -13,14 +13,17 @@
   <div class="app">
     <nav class="sidebar">
       <div class="brand">patrabahok</div>
-      <a href="/domains" class="{{if eq .Active "domains"}}active{{end}}">Domains</a>
-      <a href="/mailboxes" class="{{if eq .Active "mailboxes"}}active{{end}}">Mailboxes</a>
-      <a href="/aliases" class="{{if eq .Active "aliases"}}active{{end}}">Aliases</a>
-      <a href="/dkim" class="{{if eq .Active "dkim"}}active{{end}}">DKIM &amp; DNS</a>
-      <a href="/queue" class="{{if eq .Active "queue"}}active{{end}}">Mail queue</a>
-      <a href="/admins" class="{{if eq .Active "admins"}}active{{end}}">Admins</a>
+      <a href="/" class="{{if eq .Active "overview"}}active{{end}}"><span class="icon">◧</span>Overview</a>
+      <a href="/domains" class="{{if eq .Active "domains"}}active{{end}}"><span class="icon">◎</span>Domains</a>
+      <a href="/mailboxes" class="{{if eq .Active "mailboxes"}}active{{end}}"><span class="icon">✉</span>Mailboxes</a>
+      <a href="/aliases" class="{{if eq .Active "aliases"}}active{{end}}"><span class="icon">↪</span>Aliases</a>
+      <a href="/dkim" class="{{if eq .Active "dkim"}}active{{end}}"><span class="icon">⚿</span>DNS analysis</a>
+      <a href="/queue" class="{{if eq .Active "queue"}}active{{end}}"><span class="icon">▤</span>Mail queue</a>
+      <a href="/diagnostics" class="{{if eq .Active "diagnostics"}}active{{end}}"><span class="icon">♥</span>Diagnostics</a>
+      <a href="/tokens" class="{{if eq .Active "tokens"}}active{{end}}"><span class="icon">⚷</span>API tokens</a>
+      <a href="/admins" class="{{if eq .Active "admins"}}active{{end}}"><span class="icon">◈</span>Admins</a>
       <div class="spacer"></div>
-      <a href="/settings" class="{{if eq .Active "settings"}}active{{end}}">Settings</a>
+      <a href="/settings" class="{{if eq .Active "settings"}}active{{end}}"><span class="icon">⚙</span>Settings</a>
       <form method="post" action="/logout"><button type="submit" class="btn" style="width:100%;margin-top:4px;">Log out</button></form>
     </nav>
     <main class="main">

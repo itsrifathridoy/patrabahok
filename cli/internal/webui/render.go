@@ -14,13 +14,16 @@ type Base struct {
 }
 
 var pageFiles = map[string]string{
-	"domains":   "templates/domains.html",
-	"mailboxes": "templates/mailboxes.html",
-	"aliases":   "templates/aliases.html",
-	"dkim":      "templates/dkim.html",
-	"queue":     "templates/queue.html",
-	"admins":    "templates/admins.html",
-	"settings":  "templates/settings.html",
+	"overview":    "templates/overview.html",
+	"domains":     "templates/domains.html",
+	"mailboxes":   "templates/mailboxes.html",
+	"aliases":     "templates/aliases.html",
+	"dkim":        "templates/dkim.html",
+	"queue":       "templates/queue.html",
+	"diagnostics": "templates/diagnostics.html",
+	"tokens":      "templates/tokens.html",
+	"admins":      "templates/admins.html",
+	"settings":    "templates/settings.html",
 }
 
 var pageTemplates = map[string]*template.Template{}

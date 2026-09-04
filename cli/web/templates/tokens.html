@@ -1,0 +1,63 @@
+{{define "content"}}
+<h1>API Tokens</h1>
+<p class="subtitle">Bearer tokens for <code>patrabahokd</code>'s JSON API. Scopes: <code>domain</code>, <code>mailbox</code>, <code>alias</code>, <code>dkim</code>, <code>dns</code>, <code>queue</code>, <code>status</code>, or <code>*</code> for all.</p>
+
+<div class="card">
+  <h2>Create a token</h2>
+  <form hx-post="/tokens" hx-target="#tokens-body" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="form-row">
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" placeholder="ci-pipeline" required>
+      </div>
+      <div class="field">
+        <label for="scopes">Scopes (comma-separated, default *)</label>
+        <input type="text" id="scopes" name="scopes" placeholder="domain,mailbox">
+      </div>
+      <button type="submit" class="btn btn-primary">Create token</button>
+    </div>
+  </form>
+</div>
+
+{{template "tokens_body" .}}
+{{end}}
+
+{{define "tokens_body"}}
+<div id="tokens-body">
+  {{if .NewToken}}
+  <div class="flash flash-success">
+    Token created — copy it now, it won't be shown again:
+    <pre class="dns-record" style="margin-top:8px;">{{.NewToken}}</pre>
+  </div>
+  {{end}}
+  {{if .NewTokenErr}}
+  <div class="flash flash-error">{{.NewTokenErr}}</div>
+  {{end}}
+
+  <div class="card">
+    {{if .Tokens}}
+    <table>
+      <thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+      <tbody>
+        {{range .Tokens}}
+        <tr>
+          <td class="mono">{{.Name}}</td>
+          <td>{{range .Scopes}}<span class="badge badge-muted">{{.}}</span> {{end}}</td>
+          <td class="text-muted">{{.CreatedAt.Format "2006-01-02"}}</td>
+          <td class="text-muted">{{if .LastUsedAt}}{{.LastUsedAt.Format "2006-01-02 15:04"}}{{else}}never{{end}}</td>
+          <td style="text-align:right;">
+            <button class="btn btn-sm btn-danger"
+              hx-delete="/tokens/{{.Name}}"
+              hx-target="#tokens-body" hx-swap="outerHTML"
+              hx-confirm="Revoke token {{.Name}}? Anything using it will stop working immediately.">Revoke</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">No API tokens yet. Create one above.</div>
+    {{end}}
+  </div>
+</div>
+{{end}}

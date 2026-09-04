@@ -1,0 +1,69 @@
+{{define "content"}}
+<h1>Overview</h1>
+<p class="subtitle">{{if .MailHost}}{{.MailHost}}{{else}}Your mail server{{end}} at a glance.</p>
+
+<div class="stat-grid">
+  <a href="/domains" class="stat-card">
+    <div class="stat-value">{{.DomainCount}}</div>
+    <div class="stat-label">Domains</div>
+  </a>
+  <a href="/mailboxes" class="stat-card">
+    <div class="stat-value">{{.MailboxCount}}</div>
+    <div class="stat-label">Mailboxes</div>
+  </a>
+  <a href="/aliases" class="stat-card">
+    <div class="stat-value">{{.AliasCount}}</div>
+    <div class="stat-label">Aliases</div>
+  </a>
+  <a href="/tokens" class="stat-card">
+    <div class="stat-value">{{.TokenCount}}</div>
+    <div class="stat-label">API tokens</div>
+  </a>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 class="mt-0 mb-0">Services</h2>
+    <a href="/diagnostics" class="btn btn-sm">Full diagnostics →</a>
+  </div>
+  <p class="text-muted" style="margin-top:-6px;">{{.ServicesUp}} of {{.ServicesTotal}} running</p>
+  <div class="chip-row">
+    {{range .Services}}
+    <span class="badge {{if .Active}}badge-success{{else}}badge-error{{end}}">{{.Name}}</span>
+    {{end}}
+  </div>
+</div>
+
+<div class="stat-grid stat-grid-2">
+  <div class="card">
+    <h2>Mail queue</h2>
+    {{if .QueueKnown}}
+      {{if .QueueEmpty}}
+      <span class="badge badge-success">empty</span>
+      {{else}}
+      <span class="badge badge-warn">has messages</span>
+      {{end}}
+      <a href="/queue" style="margin-left:8px;">View queue →</a>
+    {{else}}
+    <div class="empty">Queue status unavailable.</div>
+    {{end}}
+  </div>
+
+  <div class="card">
+    <h2>Disk usage (/)</h2>
+    {{if .DiskKnown}}
+    <div class="progress"><div class="progress-bar" style="width:{{printf "%.0f" .Disk.UsedPercent}}%;"></div></div>
+    <p class="text-muted" style="margin:6px 0 0;">{{printf "%.0f" .Disk.UsedPercent}}% used</p>
+    {{else}}
+    <div class="empty">Disk info unavailable.</div>
+    {{end}}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Quick links</h2>
+  <p><a href="/dkim">DNS analysis &amp; domain setup steps →</a></p>
+  <p><a href="/diagnostics">System diagnostics &amp; recent issues →</a></p>
+  <p><a href="/tokens">Manage API tokens →</a></p>
+</div>
+{{end}}

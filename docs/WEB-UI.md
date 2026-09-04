@@ -39,16 +39,29 @@ other admins) from the **Admins** page or `patrabahok webadmin add/list/remove`.
 
 ## What it does
 
-- **Domains** — add/remove domains
+- **Overview** — live counts (domains/mailboxes/aliases/tokens), which services are up, mail
+  queue state, and disk usage, all in one glance
+- **Domains** — add/remove domains; adding one shows a "Configure DNS & verify →" prompt straight
+  into DNS Analysis for that domain
 - **Mailboxes** — add/remove mailboxes, reset passwords, set quota at creation
 - **Aliases** — add/remove forwarding rules
-- **DKIM & DNS** — view the exact DNS records each domain needs
+- **DNS analysis** — the step-by-step DNS records a domain needs (A/MX/SPF/DKIM/DMARC), plus a
+  **live verify**: it queries the server's own resolver and compares what's actually published
+  against what this server expects — including comparing the live DKIM TXT record against the
+  key this server currently signs with, so a stale record (e.g. after a reinstall regenerated the
+  key) shows up as a clear "fail" instead of silently breaking delivery
 - **Mail queue** — view and flush Postfix's queue
+- **Diagnostics** — service status, `postfix check`/`doveconf -n`/`rspamadm configtest` output,
+  TLS certificate expiry, disk usage, recent mail-log errors/warnings/bounces, and current
+  fail2ban bans — everything you'd otherwise SSH in and check by hand
+- **API tokens** — create/revoke `patrabahokd` bearer tokens and set their scopes, without
+  touching the CLI
 - **Admins** — manage who can log into the dashboard
 - **Settings** — change your own password
 
-It's a thin UI over the same `cli/internal/mailbox` logic the CLI and JSON API use — every
-action here is equally available via `patrabahok` or `patrabahokd`'s `/v1/*` endpoints.
+It's a thin UI over the same `cli/internal/mailbox`/`authtoken`/`diag`/`dnscheck` logic the CLI
+and JSON API use — every action here is equally available via `patrabahok` or `patrabahokd`'s
+`/v1/*` endpoints, so the dashboard has full CLI feature parity.
 
 ## How it's built
 

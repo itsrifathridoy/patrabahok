@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/adminauth"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
 	"github.com/itsrifathridoy/patrabahok/cli/web"
 )
@@ -23,6 +24,7 @@ import (
 type Server struct {
 	store  *mailbox.Store
 	admins *adminauth.Store
+	tokens *authtoken.Store
 	mux    *http.ServeMux
 }
 
@@ -30,6 +32,7 @@ func New(db *sql.DB) *Server {
 	s := &Server{
 		store:  mailbox.NewStore(db),
 		admins: adminauth.NewStore(db),
+		tokens: authtoken.NewStore(db),
 		mux:    http.NewServeMux(),
 	}
 	s.routes()
@@ -46,7 +49,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /login", s.handleLoginSubmit)
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
 
-	s.mux.HandleFunc("GET /", s.requireAuth(s.handleRoot))
+	s.mux.HandleFunc("GET /", s.requireAuth(s.handleOverviewPage))
 
 	s.mux.HandleFunc("GET /domains", s.requireAuth(s.handleDomainsPage))
 	s.mux.HandleFunc("POST /domains", s.requireAuth(s.handleDomainAdd))
@@ -62,10 +65,18 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /aliases", s.requireAuth(s.handleAliasDelete))
 
 	s.mux.HandleFunc("GET /dkim", s.requireAuth(s.handleDKIMPage))
+	s.mux.HandleFunc("GET /dkim/verify", s.requireAuth(s.handleDKIMVerify))
 
 	s.mux.HandleFunc("GET /queue", s.requireAuth(s.handleQueuePage))
 	s.mux.HandleFunc("GET /queue/partial", s.requireAuth(s.handleQueuePartial))
 	s.mux.HandleFunc("POST /queue/flush", s.requireAuth(s.handleQueueFlush))
+
+	s.mux.HandleFunc("GET /diagnostics", s.requireAuth(s.handleDiagnosticsPage))
+	s.mux.HandleFunc("GET /diagnostics/partial", s.requireAuth(s.handleDiagnosticsPartial))
+
+	s.mux.HandleFunc("GET /tokens", s.requireAuth(s.handleTokensPage))
+	s.mux.HandleFunc("POST /tokens", s.requireAuth(s.handleTokenAdd))
+	s.mux.HandleFunc("DELETE /tokens/{name}", s.requireAuth(s.handleTokenDelete))
 
 	s.mux.HandleFunc("GET /admins", s.requireAuth(s.handleAdminsPage))
 	s.mux.HandleFunc("POST /admins", s.requireAuth(s.handleAdminAdd))
@@ -80,10 +91,6 @@ func cacheHeaders(h http.Handler) http.Handler {
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		h.ServeHTTP(w, r)
 	})
-}
-
-func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/domains", http.StatusSeeOther)
 }
 
 // --- TLS certificate hot-reload -------------------------------------------------

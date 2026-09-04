@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>DKIM &amp; DNS</h1>
-<p class="subtitle">The DNS records each domain needs for mail to be trusted (SPF, DKIM, DMARC).</p>
+<h1>DNS Analysis</h1>
+<p class="subtitle">The DNS records each domain needs, and live verification against what's actually published.</p>
 
 {{if not .Domains}}
 <div class="card"><p class="text-muted">Add a domain first.</p></div>
@@ -19,12 +19,66 @@
 </div>
 
 <div class="card">
-  <h2>DNS records for {{.Selected}}</h2>
-  {{if .Records}}
-  <pre class="dns-record">{{.Records}}</pre>
+  <h2>Setup steps for {{.Selected}}</h2>
+  <ol class="steps">
+    <li>Add an <strong>A record</strong> pointing your mail hostname at this server's IP.</li>
+    <li>Add an <strong>MX record</strong> for the domain pointing at that mail hostname.</li>
+    <li>Add the <strong>SPF</strong> TXT record shown below.</li>
+    <li>Add the <strong>DKIM</strong> TXT record shown below (the exact key this server signs with).</li>
+    <li>Add the <strong>DMARC</strong> TXT record shown below — starts at <code>p=none</code> (monitor only) on purpose; move to <code>quarantine</code>/<code>reject</code> later once you've confirmed mail passes.</li>
+    <li>Click <strong>Verify DNS now</strong> below once records are added (propagation can take a few minutes to a few hours).</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>Records to add</h2>
+  {{if .RawRecords}}
+  <pre class="dns-record">{{.RawRecords}}</pre>
   {{else}}
   <div class="empty">No records generated yet for this domain.</div>
   {{end}}
 </div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 class="mt-0 mb-0">Live verification</h2>
+    <button class="btn btn-primary" hx-get="/dkim/verify?domain={{.Selected}}" hx-target="#dns-analysis" hx-swap="outerHTML" hx-indicator="#verify-spinner">
+      Verify DNS now
+    </button>
+  </div>
+  <span id="verify-spinner" class="htmx-indicator text-muted">Checking DNS…</span>
+  {{template "dns_analysis" .}}
+</div>
 {{end}}
+{{end}}
+
+{{define "dns_analysis"}}
+<div id="dns-analysis">
+  {{if .Checked}}
+    {{if .Report.Checks}}
+    <table>
+      <thead><tr><th>Check</th><th>Expected</th><th>Found</th><th>Status</th></tr></thead>
+      <tbody>
+        {{range .Report.Checks}}
+        <tr>
+          <td>{{.Label}}</td>
+          <td class="mono">{{.Expected}}</td>
+          <td class="mono">{{.Found}}</td>
+          <td>{{if .Pass}}<span class="badge badge-success">pass</span>{{else}}<span class="badge badge-error">fail</span>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{if .Report.AllPass}}
+    <div class="flash flash-success" style="margin-top:14px;">All checks pass — this domain is fully configured.</div>
+    {{else}}
+    <div class="flash flash-error" style="margin-top:14px;">Some records aren't right yet. Fix the ones marked "fail" above, then verify again — DNS changes can take a while to propagate.</div>
+    {{end}}
+    {{else}}
+    <div class="empty">Nothing to check yet.</div>
+    {{end}}
+  {{else}}
+  <div class="empty">Click "Verify DNS now" to check this domain's live DNS records.</div>
+  {{end}}
+</div>
 {{end}}

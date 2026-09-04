@@ -1,0 +1,99 @@
+{{define "content"}}
+<h1>Diagnostics</h1>
+<p class="subtitle">System health, config validation, TLS status, disk space, recent issues, and current fail2ban bans.</p>
+
+<div class="toolbar">
+  <span></span>
+  <button class="btn" hx-get="/diagnostics/partial" hx-target="#diag-body" hx-swap="outerHTML" hx-indicator="#diag-spinner">
+    Refresh
+  </button>
+</div>
+<span id="diag-spinner" class="htmx-indicator text-muted">Refreshing…</span>
+
+{{template "diagnostics_body" .}}
+{{end}}
+
+{{define "diagnostics_body"}}
+<div id="diag-body">
+  <div class="card">
+    <h2>Services</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Status</th></tr></thead>
+      <tbody>
+        {{range .Services}}
+        <tr>
+          <td class="mono">{{.Name}}</td>
+          <td>{{if .Active}}<span class="badge badge-success">active</span>{{else}}<span class="badge badge-error">inactive</span>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Config validation</h2>
+    <table>
+      <thead><tr><th>Check</th><th>Status</th><th>Output</th></tr></thead>
+      <tbody>
+        {{range .Configs}}
+        <tr>
+          <td class="mono">{{.Name}}</td>
+          <td>{{if .Pass}}<span class="badge badge-success">ok</span>{{else}}<span class="badge badge-error">failed</span>{{end}}</td>
+          <td class="mono" style="white-space:pre-wrap;">{{if .Output}}{{.Output}}{{else}}—{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="stat-grid stat-grid-2">
+    <div class="card">
+      <h2>TLS certificate</h2>
+      {{if .TLSKnown}}
+      <p>{{.TLS.CommonName}} — {{if .TLS.Valid}}<span class="badge badge-success">valid</span>{{else}}<span class="badge badge-error">expired</span>{{end}}</p>
+      <p class="text-muted">{{.TLS.DaysLeft}} days remaining (expires {{.TLS.NotAfter.Format "2006-01-02"}})</p>
+      {{else}}
+      <div class="empty">{{if .TLS.Error}}{{.TLS.Error}}{{else}}No certificate info available.{{end}}</div>
+      {{end}}
+    </div>
+
+    <div class="card">
+      <h2>Disk usage (/)</h2>
+      {{if .DiskKnown}}
+      <div class="progress"><div class="progress-bar" style="width:{{printf "%.0f" .Disk.UsedPercent}}%;"></div></div>
+      <p class="text-muted" style="margin:6px 0 0;">{{printf "%.0f" .Disk.UsedPercent}}% used</p>
+      {{else}}
+      <div class="empty">Disk info unavailable.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent mail log issues</h2>
+    {{if .MailIssues}}
+    <pre class="dns-record">{{range .MailIssues}}{{.}}
+{{end}}</pre>
+    {{else}}
+    <div class="empty">No recent errors, warnings, bounces, or rejects found.</div>
+    {{end}}
+  </div>
+
+  <div class="card">
+    <h2>fail2ban bans</h2>
+    {{if .Fail2banErr}}
+    <div class="empty">{{.Fail2banErr}}</div>
+    {{else if .Fail2ban}}
+    <table>
+      <thead><tr><th>Jail</th><th>IP</th></tr></thead>
+      <tbody>
+        {{range .Fail2ban}}
+        <tr><td class="mono">{{.Jail}}</td><td class="mono">{{.IP}}</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">No IPs currently banned.</div>
+    {{end}}
+  </div>
+</div>
+{{end}}

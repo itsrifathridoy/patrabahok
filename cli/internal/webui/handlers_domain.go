@@ -8,7 +8,8 @@ import (
 
 type DomainsPageData struct {
 	Base
-	Domains []mailbox.Domain
+	Domains   []mailbox.Domain
+	JustAdded string
 }
 
 func (s *Server) domainsData(r *http.Request) (DomainsPageData, error) {
@@ -36,11 +37,18 @@ func (s *Server) handleDomainAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.DomainAdd(r.Context(), r.FormValue("name")); err != nil {
+	name := r.FormValue("name")
+	if err := s.store.DomainAdd(r.Context(), name); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	s.respondDomainsTable(w, r)
+	data, err := s.domainsData(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data.JustAdded = name
+	renderPartial(w, "domains", "domains_table", data)
 }
 
 func (s *Server) handleDomainDelete(w http.ResponseWriter, r *http.Request) {

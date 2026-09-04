@@ -22,13 +22,19 @@
 
 {{define "domains_table"}}
 <div id="domains-table">
+  {{if .JustAdded}}
+  <div class="flash flash-success">
+    <strong>{{.JustAdded}}</strong> added. <a href="/dkim?domain={{.JustAdded}}">Configure DNS &amp; verify →</a>
+  </div>
+  {{end}}
   {{if .Domains}}
   <table>
-    <thead><tr><th>Domain</th><th></th></tr></thead>
+    <thead><tr><th>Domain</th><th></th><th></th></tr></thead>
     <tbody>
       {{range .Domains}}
       <tr>
         <td class="mono">{{.Name}}</td>
+        <td><a href="/dkim?domain={{.Name}}">Configure DNS →</a></td>
         <td style="text-align:right;">
           <button class="btn btn-sm btn-danger"
             hx-delete="/domains/{{.Name}}"
