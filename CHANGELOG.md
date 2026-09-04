@@ -1,7 +1,18 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] - Unreleased
+## [Unreleased]
+
+### Added
+- Multi-OS support: Ubuntu 22.04 LTS and Debian 12 ("bookworm") alongside Ubuntu 24.04.
+  Package installation now installs rspamd separately from the rest of the stack and
+  falls back to the official Rspamd APT repository if a target's default repos don't
+  provide it. The rspamd system user/group are now detected at runtime instead of
+  assumed, since a third-party repo package could name them differently.
+  Ubuntu 22.04 and Debian 12 are implemented but not yet live-verified on real
+  servers the way Ubuntu 24.04 was (see `docs/ROADMAP.md`).
+
+## [0.1.0] - 2026-09-04
 
 ### Added
 - Initial MVP: `install.sh` bootstrap with SHA-256 verified release fetch.

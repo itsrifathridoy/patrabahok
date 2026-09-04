@@ -2,8 +2,8 @@
 
 ## Requirements
 
-- Ubuntu 24.04 LTS, run as root (fresh server strongly recommended — the installer takes over
-  Postfix/Dovecot/MariaDB/firewall configuration)
+- Ubuntu 24.04, Ubuntu 22.04, or Debian 12, run as root (fresh server strongly recommended —
+  the installer takes over Postfix/Dovecot/MariaDB/firewall configuration)
 - A domain you control
 - Ability to add DNS records (A, MX, TXT) for that domain
 - Outbound TCP/25 not blocked (common on some cloud providers for new accounts — the installer

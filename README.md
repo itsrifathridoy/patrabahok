@@ -1,6 +1,7 @@
 # patrabahok
 
-A production-oriented, self-hosted mail server installer for Ubuntu 24.04 LTS. One command
+A production-oriented, self-hosted mail server installer for Ubuntu 24.04/22.04 LTS and
+Debian 12. One command
 sets up Postfix, Dovecot, MariaDB (virtual multi-domain mailboxes), Rspamd + ClamAV (spam
 scoring, DKIM signing/verification, DMARC, antivirus), Let's Encrypt TLS, ufw + fail2ban, and
 a local recursive resolver — plus a `patrabahok` CLI for day-2 domain/mailbox management.
@@ -27,7 +28,8 @@ for exactly what the bootstrap does and how it verifies what it downloads.
 
 ## Requirements
 
-- A fresh Ubuntu 24.04 LTS server, run as root
+- A fresh Ubuntu 24.04, Ubuntu 22.04, or Debian 12 server, run as root (Ubuntu 24.04 is the
+  most battle-tested target so far — see [docs/ROADMAP.md](docs/ROADMAP.md))
 - A domain you control, with the ability to add DNS records
 - Outbound port 25 not blocked by your VPS provider (the installer checks and warns)
 
@@ -51,14 +53,17 @@ non-interactive/scripted install, and how to add more domains and mailboxes afte
 - [docs/DNS-RECORDS.md](docs/DNS-RECORDS.md) — every DNS record explained
 - [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) — backup and disaster recovery
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failure signatures
-- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (multi-OS, PostfixAdmin,
-  Roundcube, the Go CLI/API daemon, mandatory release signing, VM-based CI)
+- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (PostfixAdmin, Roundcube, the
+  Go CLI/API daemon, mandatory release signing, VM-based CI, live verification on
+  Ubuntu 22.04/Debian 12)
 
 ## Status
 
-This is an early, single-OS-target (Ubuntu 24.04) release. It's built to be genuinely
-production-usable for a single-server, single-to-multi-domain mail setup, not a toy — but
-review [docs/ROADMAP.md](docs/ROADMAP.md) for what's intentionally out of scope so far.
+This is an early release. It's built to be genuinely production-usable for a single-server,
+single-to-multi-domain mail setup, not a toy — Ubuntu 24.04 has been live-tested end to end
+(including real Gmail delivery with SPF/DKIM/DMARC all passing); Ubuntu 22.04 and Debian 12
+support is implemented but awaiting the same live-testing pass. Review
+[docs/ROADMAP.md](docs/ROADMAP.md) for everything else intentionally out of scope so far.
 
 ## License
 

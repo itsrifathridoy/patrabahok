@@ -62,7 +62,7 @@ unverified remote code itself.
 
 ## Known MVP limitations (see ROADMAP.md)
 
-- Ubuntu 24.04 only (Debian 12 / Ubuntu 22.04 untested)
+- Ubuntu 22.04/Debian 12 support is implemented but not yet live-verified (Ubuntu 24.04 is)
 - No PostfixAdmin / Roundcube web UIs yet
 - CLI is Bash, not the planned Go CLI + local API daemon
 - Per-mailbox quota is collected but not yet enforced dynamically (a single global default

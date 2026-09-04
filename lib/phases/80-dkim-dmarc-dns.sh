@@ -3,11 +3,16 @@ set -euo pipefail
 PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=../core/log.sh
 . "$PATRABAHOK_HOME/lib/core/log.sh"
+# shellcheck source=../core/os.sh
+. "$PATRABAHOK_HOME/lib/core/os.sh"
 # shellcheck source=../core/state.sh
 . "$PATRABAHOK_HOME/lib/core/state.sh"
 state_init
 
-RSPAMD_USER="_rspamd"
+RSPAMD_USER="$(state_get rspamd_user)"
+[ -n "$RSPAMD_USER" ] || RSPAMD_USER="$(detect_rspamd_user)"
+RSPAMD_GROUP="$(state_get rspamd_group)"
+[ -n "$RSPAMD_GROUP" ] || RSPAMD_GROUP="$(id -gn "$RSPAMD_USER" 2>/dev/null || printf '%s' "$RSPAMD_USER")"
 SELECTOR="mail"
 DKIM_DIR="/var/lib/rspamd/dkim"
 
@@ -25,7 +30,7 @@ generate_dkim_key() {
 
   log_info "Generating DKIM key for ${domain} (selector: ${SELECTOR})..."
   rspamadm dkim_keygen -s "$SELECTOR" -d "$domain" -k "$key_path" > "$record_path"
-  chown "${RSPAMD_USER}:${RSPAMD_USER}" "$key_path"
+  chown "${RSPAMD_USER}:${RSPAMD_GROUP}" "$key_path"
   chmod 640 "$key_path"
   chmod 644 "$record_path"
 }

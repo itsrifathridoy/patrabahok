@@ -3,15 +3,20 @@ set -euo pipefail
 PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=../core/log.sh
 . "$PATRABAHOK_HOME/lib/core/log.sh"
+# shellcheck source=../core/os.sh
+. "$PATRABAHOK_HOME/lib/core/os.sh"
 # shellcheck source=../core/state.sh
 . "$PATRABAHOK_HOME/lib/core/state.sh"
 # shellcheck source=../core/template.sh
 . "$PATRABAHOK_HOME/lib/core/template.sh"
 state_init
 
-RSPAMD_USER="_rspamd"
-
 phase_run() {
+  local RSPAMD_USER RSPAMD_GROUP
+  RSPAMD_USER="$(detect_rspamd_user)"
+  RSPAMD_GROUP="$(id -gn "$RSPAMD_USER" 2>/dev/null || printf '%s' "$RSPAMD_USER")"
+  state_set rspamd_user "$RSPAMD_USER"
+  state_set rspamd_group "$RSPAMD_GROUP"
   log_info "Starting Redis (Rspamd Bayes/ratelimit state)..."
   systemctl enable --now redis-server >/dev/null 2>&1
   systemctl restart redis-server
@@ -36,7 +41,7 @@ phase_run() {
 
   log_info "Configuring Rspamd (spam scoring, DKIM sign/verify, DMARC, ClamAV)..."
   mkdir -p /etc/rspamd/local.d /var/lib/rspamd/dkim
-  chown "${RSPAMD_USER}:${RSPAMD_USER}" /var/lib/rspamd/dkim
+  chown "${RSPAMD_USER}:${RSPAMD_GROUP}" /var/lib/rspamd/dkim
   chmod 750 /var/lib/rspamd/dkim
 
   local f base

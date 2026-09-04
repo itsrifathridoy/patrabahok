@@ -3,10 +3,13 @@
 The first release intentionally scopes down to a real, production-usable single-OS core. These
 are the deferred pieces, roughly in the order they're likely to land.
 
-## Multi-OS support
-Ubuntu 22.04 LTS and Debian 12 ("bookworm"). Package names/behavior need re-validation per OS
-(mostly minor differences expected since the package set was chosen to already be consistent
-across all three, but nothing has been tested outside Ubuntu 24.04 yet).
+## Multi-OS support — implemented, pending live verification
+Ubuntu 22.04 LTS and Debian 12 ("bookworm") are now handled by `lib/core/os.sh` and
+`lib/phases/10-packages.sh` (rspamd is installed separately with a fallback to the official
+Rspamd APT repo if a target's default repos lack it; the rspamd system user/group are detected
+at runtime rather than assumed). This has **not yet been live-tested** on real Ubuntu 22.04 or
+Debian 12 servers the way Ubuntu 24.04 was — that live-testing pass (the same process that found
+and fixed 8 real bugs on 24.04) is still needed before calling these two targets verified.
 
 ## Go CLI + local API daemon
 Replace/extend the Bash `patrabahok` CLI with a Go binary (`patrabahok`) plus a `patrabahokd`
