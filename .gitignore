@@ -2,6 +2,8 @@
 /dist/
 *.tar.gz
 *.tar.gz.sha256
+*.tar.gz.minisig
+*.minisign.key
 .DS_Store
 *.swp
 *~

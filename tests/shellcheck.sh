@@ -10,6 +10,7 @@ command -v shellcheck >/dev/null 2>&1 || {
 
 files=(install.sh bin/patrabahok-installer)
 while IFS= read -r -d '' f; do files+=("$f"); done < <(find lib -name '*.sh' -print0)
+while IFS= read -r -d '' f; do files+=("$f"); done < <(find scripts -name '*.sh' -print0)
 
 fail=0
 for f in "${files[@]}"; do

@@ -4,6 +4,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Mandatory release signing: `install.sh` now verifies a minisign signature (in addition
+  to the existing SHA-256 checksum) against an embedded public key, hard-failing on
+  either check — closes the "compromised release-publishing process" gap the checksum
+  alone never covered. Signing key generated and held entirely offline, never touching
+  this repo or CI. `scripts/build-release.sh`/`scripts/sign-release.sh` are the actual
+  release process. Falls back to a checksum-pinned upstream `minisign` binary where the
+  OS's own package repo doesn't carry the CLI (Ubuntu 22.04). See
+  [SECURITY.md](docs/SECURITY.md). Live-tested: both the apt and fallback-binary paths,
+  against a real signed release, including a tamper test confirming a single modified
+  byte correctly fails verification.
+- patrabahok Mail: a real IMAP/SMTP webmail client (`mail-client/`, Next.js/Postgres),
+  scoped to this server's own mailboxes with its own end-user login, Postgres-cached
+  sync, multi-account switching with refresh-safe URLs, and a sandboxed HTML renderer
+  for untrusted email content. Also fixed a real server-side gap along the way: nothing
+  was routing Rspamd-flagged spam to a Junk folder for any mailbox — added a global
+  Dovecot sieve rule that does. See [ROADMAP.md](docs/ROADMAP.md) for what's live-tested
+  versus still pending (installer integration, the other two OS targets, attachments,
+  search).
 - Multi-OS support: Ubuntu 22.04 LTS and Debian 12 ("bookworm") alongside Ubuntu 24.04.
   Package installation now installs rspamd separately from the rest of the stack and
   falls back to the official Rspamd APT repository if a target's default repos don't
