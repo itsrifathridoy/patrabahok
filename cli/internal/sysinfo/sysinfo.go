@@ -15,7 +15,13 @@ const (
 	DKIMDir    = "/var/lib/rspamd/dkim"
 	Selector   = "mail"
 	StateFile  = "/etc/patrabahok/state.json"
-	DNSDumpDir = "/root"
+	DNSDumpDir = "/var/lib/patrabahok/dns-records"
+	// LegacyDNSDumpDir is where dump files were written before DNSDumpDir moved out
+	// from under /root — kept as a read fallback so servers installed before that
+	// change don't lose access to their existing dump for the domain(s) from install
+	// time. patrabahokd's systemd sandbox (ProtectHome=read-only) doesn't grant it
+	// write access here, which is the whole reason this moved in the first place.
+	LegacyDNSDumpDir = "/root"
 )
 
 func DKIMRecord(domain string) (string, error) {
@@ -28,9 +34,11 @@ func DKIMRecord(domain string) (string, error) {
 }
 
 func DNSRecords(domain string) (string, error) {
-	path := filepath.Join(DNSDumpDir, "patrabahok-dns-"+domain+".txt")
-	b, err := os.ReadFile(path)
-	if err == nil {
+	name := "patrabahok-dns-" + domain + ".txt"
+	if b, err := os.ReadFile(filepath.Join(DNSDumpDir, name)); err == nil {
+		return string(b), nil
+	}
+	if b, err := os.ReadFile(filepath.Join(LegacyDNSDumpDir, name)); err == nil {
 		return string(b), nil
 	}
 	// Fall back to just the DKIM record if the full dump isn't present.

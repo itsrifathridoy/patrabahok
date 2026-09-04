@@ -108,12 +108,23 @@ phase_run() {
   [ -n "$tls_cert_dir" ] && [ -f "${tls_cert_dir}/fullchain.pem" ] \
     || die "No TLS certificate found in state (expected phase 40-tls to have set this) — cannot configure the admin dashboard's HTTPS listener."
 
+  # Must exist before the unit (below) starts: its ReadWritePaths= bind-mounts this
+  # directory read-write inside the sandbox at process start, so if it doesn't exist
+  # yet the mount is skipped and the dashboard can never create it itself afterward.
+  mkdir -p /var/lib/patrabahok/dns-records
+  chmod 700 /var/lib/patrabahok/dns-records
+
   render_template "$PATRABAHOK_HOME/templates/systemd/patrabahokd.service.tmpl" /etc/systemd/system/patrabahokd.service \
     "TLS_CERT=${tls_cert_dir}/fullchain.pem" "TLS_KEY=${tls_cert_dir}/privkey.pem"
   ufw allow 8443/tcp comment 'patrabahok-dashboard' >/dev/null 2>&1 || true
 
   systemctl daemon-reload
-  systemctl enable --now patrabahokd
+  systemctl enable patrabahokd
+  # Not "enable --now": that only starts the unit if it isn't already active, so a
+  # re-run of this phase (new binaries, or a unit-file change like ReadWritePaths)
+  # would silently keep the OLD process running under the OLD sandbox/binary until
+  # something else happened to restart it. Always restart explicitly instead.
+  systemctl restart patrabahokd
 
   local tries=0
   until [ -S /run/patrabahok/api.sock ]; do

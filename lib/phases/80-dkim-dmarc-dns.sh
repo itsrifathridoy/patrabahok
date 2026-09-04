@@ -15,6 +15,10 @@ RSPAMD_GROUP="$(state_get rspamd_group)"
 [ -n "$RSPAMD_GROUP" ] || RSPAMD_GROUP="$(id -gn "$RSPAMD_USER" 2>/dev/null || printf '%s' "$RSPAMD_USER")"
 SELECTOR="mail"
 DKIM_DIR="/var/lib/rspamd/dkim"
+# Not /root: patrabahokd's systemd sandbox (ProtectHome=read-only) can't write there,
+# and domains added later (CLI/API/dashboard) need to regenerate this file too — see
+# cli/internal/mailbox/dkim_provision.go, which writes here as well.
+DNS_DUMP_DIR="/var/lib/patrabahok/dns-records"
 
 # generate_dkim_key DOMAIN — idempotent: generates a key+DNS-record pair only if one
 # doesn't already exist for this domain/selector.
@@ -38,7 +42,9 @@ generate_dkim_key() {
 write_dns_records_file() {
   local domain="$1" mail_hostname="$2" server_ip="$3" admin_email="$4"
   local record_path="${DKIM_DIR}/${domain}.${SELECTOR}.txt"
-  local out="/root/patrabahok-dns-${domain}.txt"
+  local out="${DNS_DUMP_DIR}/patrabahok-dns-${domain}.txt"
+  mkdir -p "$DNS_DUMP_DIR"
+  chmod 700 "$DNS_DUMP_DIR"
 
   {
     echo "DNS records required for ${domain} (mail server: ${mail_hostname})"

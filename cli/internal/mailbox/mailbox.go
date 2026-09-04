@@ -111,8 +111,13 @@ func (s *Store) DomainAdd(ctx context.Context, name string) error {
 	if err := ValidateDomain(name); err != nil {
 		return err
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT IGNORE INTO virtual_domains (name) VALUES (?)`, name)
-	return err
+	if _, err := s.db.ExecContext(ctx, `INSERT IGNORE INTO virtual_domains (name) VALUES (?)`, name); err != nil {
+		return err
+	}
+	if err := ensureDKIMAndDNSRecords(name); err != nil {
+		return fmt.Errorf("domain added, but DKIM key/DNS record generation failed: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) DomainList(ctx context.Context) ([]Domain, error) {

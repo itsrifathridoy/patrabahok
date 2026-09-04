@@ -39,8 +39,9 @@ already succeeded and resumes at the first failed/incomplete phase:
 
 `preflight → packages → firewall → database → tls → postfix → dovecot → rspamd/clamav → dkim/dns → cli → verify`
 
-At the end, DNS records are printed and saved to `/root/patrabahok-dns-<domain>.txt`. Add them,
-wait for propagation, then send yourself a test email.
+At the end, DNS records are printed and saved to
+`/var/lib/patrabahok/dns-records/patrabahok-dns-<domain>.txt`. Add them, wait for propagation,
+then send yourself a test email.
 
 ## Non-interactive / scripted install
 

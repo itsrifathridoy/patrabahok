@@ -1,7 +1,10 @@
 # DNS records
 
-The installer prints and saves these to `/root/patrabahok-dns-<domain>.txt` after setup. You can
-reprint them any time with `patrabahok dns show <domain>`.
+The installer prints and saves these to `/var/lib/patrabahok/dns-records/patrabahok-dns-<domain>.txt`
+after setup, and regenerates them (including a fresh DKIM key) for every domain added afterward —
+via `patrabahok domain add`, the API, or the dashboard's Domains page. You can reprint them any
+time with `patrabahok dns show <domain>`, or view them live (with pass/fail verification against
+what's actually published) on the dashboard's DNS Analysis page.
 
 ## A record (once per server, not per domain)
 

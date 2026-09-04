@@ -75,4 +75,4 @@ If unbound itself is down, `systemctl restart unbound` and re-check.
 | Mail logs | `/var/log/mail.log` |
 | DKIM keys | `/var/lib/rspamd/dkim/` |
 | TLS certs | `/etc/letsencrypt/live/<hostname>/` |
-| DNS record dump | `/root/patrabahok-dns-<domain>.txt` |
+| DNS record dump | `/var/lib/patrabahok/dns-records/patrabahok-dns-<domain>.txt` |
