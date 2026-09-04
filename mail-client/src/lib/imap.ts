@@ -192,8 +192,21 @@ export async function syncFolder(
       return { folder: folder.name, newMessages: newCount };
     });
   } catch (err) {
-    return { folder: folder.name, newMessages: 0, error: (err as Error).message };
+    return { folder: folder.name, newMessages: 0, error: describeImapError(err) };
   }
+}
+
+/** Turns imapflow's raw error (often just "Command failed" with the useful detail
+ * tucked into extra properties, not .message) into something an admin can actually act
+ * on — most importantly, telling authentication failures apart from everything else,
+ * since that specific case means the stored password no longer matches the mailbox's
+ * real one (e.g. it was changed) and needs the account reconnected, not just retried. */
+export function describeImapError(err: unknown): string {
+  const e = err as { authenticationFailed?: boolean; serverResponseCode?: string; responseText?: string; message?: string };
+  if (e?.authenticationFailed || e?.serverResponseCode === "AUTHENTICATIONFAILED") {
+    return "AUTH_FAILED: the stored password no longer works — reconnect this account.";
+  }
+  return e?.message || "Could not sync this folder.";
 }
 
 async function upsertMessage(accountId: string, folderId: string, msg: FetchMessageObject) {

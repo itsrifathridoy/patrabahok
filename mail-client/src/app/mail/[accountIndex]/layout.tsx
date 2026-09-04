@@ -7,6 +7,7 @@ import type { AccountSummary, FolderRow } from "../types";
 import { MailContext, type MailContextValue } from "../MailContext";
 import ComposeModal, { type ComposeDraft } from "../ComposeModal";
 import AddAccountModal from "../AddAccountModal";
+import ReconnectModal from "../ReconnectModal";
 import { initials, accountColor, timeAgo, ROLE_LABEL, ROLE_ICON } from "../utils";
 
 const SYNC_INTERVAL_MS = 15_000;
@@ -28,6 +29,7 @@ export default function AccountLayout({
   const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [composeDraft, setComposeDraft] = useState<ComposeDraft | null>(null);
   const [composeAccountId, setComposeAccountId] = useState<string | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const account = accounts[accountIndex] ?? null;
 
@@ -217,7 +219,18 @@ export default function AccountLayout({
             <span style={{ display: "inline-block", animation: syncing ? "spin 1s linear infinite" : undefined }}>⟳</span>
             {syncing ? "Syncing…" : account?.lastSyncedAt ? `Synced ${timeAgo(account.lastSyncedAt)}` : "Not synced yet"}
           </button>
-          {account?.lastSyncError && (
+          {account?.lastSyncError?.startsWith("AUTH_FAILED:") && (
+            <div className="text-xs rounded-lg px-3 py-2 flex flex-col gap-1.5" style={{ background: "#fbeceb", color: "var(--danger)" }}>
+              <span>Password changed — sync stopped.</span>
+              <button
+                onClick={() => setReconnecting(true)}
+                className="self-start font-semibold underline"
+              >
+                Reconnect
+              </button>
+            </div>
+          )}
+          {account?.lastSyncError && !account.lastSyncError.startsWith("AUTH_FAILED:") && (
             <div className="text-xs rounded-lg px-3 py-2" style={{ background: "#fbeceb", color: "var(--danger)" }}>
               Sync issue: {account.lastSyncError}
             </div>
@@ -226,6 +239,17 @@ export default function AccountLayout({
       </aside>
 
       <MailContext.Provider value={ctxValue}>{children}</MailContext.Provider>
+
+      {reconnecting && account && (
+        <ReconnectModal
+          email={account.email}
+          onClose={() => setReconnecting(false)}
+          onReconnected={async () => {
+            setReconnecting(false);
+            await Promise.all([refreshAccounts(), runSync()]);
+          }}
+        />
+      )}
 
       {composeDraft && composeAccountId && (
         <ComposeModal
