@@ -20,6 +20,20 @@ DKIM_DIR="/var/lib/rspamd/dkim"
 # cli/internal/mailbox/dkim_provision.go, which writes here as well.
 DNS_DUMP_DIR="/var/lib/patrabahok/dns-records"
 
+# normalize_dkim_record_name DOMAIN — rspamadm dkim_keygen emits a bare, zone-file-
+# relative name ("mail._domainkey"), only meaningful inside a zone file that already has
+# $ORIGIN set to this exact domain. Rewrites the record file to start with the fully
+# qualified name instead, so it's safe to paste as-is into a DNS provider's "Name"
+# field. Runs every time (not just after a fresh generation), so a file written before
+# this fix existed gets self-healed the next time this phase runs.
+normalize_dkim_record_name() {
+  local domain="$1"
+  local record_path="${DKIM_DIR}/${domain}.${SELECTOR}.txt"
+  [ -f "$record_path" ] || return 0
+  head -n1 "$record_path" | grep -qF "${SELECTOR}._domainkey.${domain}" && return 0
+  sed -i "1s/^${SELECTOR}\._domainkey\b/${SELECTOR}._domainkey.${domain}/" "$record_path"
+}
+
 # generate_dkim_key DOMAIN — idempotent: generates a key+DNS-record pair only if one
 # doesn't already exist for this domain/selector.
 generate_dkim_key() {
@@ -29,6 +43,7 @@ generate_dkim_key() {
 
   if [ -f "$key_path" ]; then
     log_info "DKIM key for ${domain} already exists, reusing it."
+    normalize_dkim_record_name "$domain"
     return 0
   fi
 
@@ -37,6 +52,7 @@ generate_dkim_key() {
   chown "${RSPAMD_USER}:${RSPAMD_GROUP}" "$key_path"
   chmod 640 "$key_path"
   chmod 644 "$record_path"
+  normalize_dkim_record_name "$domain"
 }
 
 write_dns_records_file() {

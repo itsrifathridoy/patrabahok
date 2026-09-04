@@ -83,6 +83,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   retry right after fixing DNS wouldn't reflect reality until that cache entry's TTL
   expired. The verify now flushes the local resolver's cache for the exact names it's
   about to check first.
+- The DKIM record shown for manual copy-paste (`patrabahok dns show`/`dkim show`, and the
+  dashboard's "Records to add") started with a bare, zone-file-relative name
+  (`mail._domainkey`) rather than the fully qualified one — that's all `rspamadm
+  dkim_keygen` ever emits, correct only inside a zone file that already has `$ORIGIN` set
+  to the domain, wrong to paste as-is into a DNS provider's Name field. Both the installer
+  (phase 80) and `mailbox.Store.DomainAdd` now rewrite it to
+  `mail._domainkey.<domain>` — self-healing already-generated records the next time a
+  domain is (re-)added, no migration needed. (Cloudflare auto-configure was never affected
+  — it always builds the record name separately and correctly.)
 - Some minimal cloud images (seen on Debian 12) don't ship `rsyslog`, so
   `/var/log/auth.log`/`/var/log/mail.log` never get created and fail2ban's sshd jail
   hard-failed its entire startup. `rsyslog` is now installed explicitly and both log

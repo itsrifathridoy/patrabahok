@@ -41,7 +41,39 @@ func ensureDKIMAndDNSRecords(domain string) error {
 		}
 	}
 
+	// Runs every call, not just on fresh generation, so a domain whose record file was
+	// written before this fix existed gets self-healed the next time it's touched (e.g.
+	// a repeat `domain add`), without needing a separate migration step.
+	if err := normalizeDKIMRecordName(recordPath, domain); err != nil {
+		return fmt.Errorf("normalize DKIM record name: %w", err)
+	}
+
 	return writeDNSRecordsFile(domain, recordPath)
+}
+
+// normalizeDKIMRecordName rewrites the DKIM record file so it starts with the fully
+// qualified name (selector._domainkey.<domain>) instead of rspamadm dkim_keygen's bare,
+// zone-file-relative selector ("mail._domainkey"). The bare form is only meaningful
+// inside a zone file that already has $ORIGIN set to this exact domain — it's wrong to
+// paste as-is into a DNS provider's "Name" field, or to use as a Cloudflare API record
+// name (which internal/cloudflare already builds separately and correctly; this only
+// affects the human-readable text shown for manual copy-paste).
+func normalizeDKIMRecordName(recordPath, domain string) error {
+	data, err := os.ReadFile(recordPath)
+	if err != nil {
+		return err
+	}
+	text := string(data)
+	qualified := sysinfo.Selector + "._domainkey." + domain
+	bare := sysinfo.Selector + "._domainkey"
+	if strings.HasPrefix(text, qualified) {
+		return nil // already fixed
+	}
+	if !strings.HasPrefix(text, bare) {
+		return nil // unrecognized format — leave it alone rather than guess
+	}
+	text = qualified + text[len(bare):]
+	return os.WriteFile(recordPath, []byte(text), 0o644)
 }
 
 func rspamdOwner() (user, group string) {
