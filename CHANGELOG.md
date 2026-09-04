@@ -4,6 +4,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Per-mailbox quota enforcement: Dovecot now reads each mailbox's actual `quota_bytes`
+  from the database (via `user_query`'s `quota_rule` extra field) instead of one static
+  1G limit shared by every mailbox. New `patrabahok mailbox quota <user@domain> <quota>`
+  CLI command, dashboard button, and `PUT /v1/mailboxes/{email}/quota` API endpoint
+  change an existing mailbox's limit, taking effect immediately (no restart). Verified
+  live: delivering past a mailbox's quota is correctly rejected at LMTP (`552 5.2.2
+  Quota exceeded`) and bounced, and raising the quota immediately allows delivery to
+  succeed on retry — on all three supported OSes.
 - Mandatory release signing: `install.sh` now verifies a minisign signature (in addition
   to the existing SHA-256 checksum) against an embedded public key, hard-failing on
   either check — closes the "compromised release-publishing process" gap the checksum

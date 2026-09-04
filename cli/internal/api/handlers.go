@@ -42,6 +42,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/mailboxes", s.requireScope("mailbox", s.handleMailboxAdd))
 	s.mux.HandleFunc("DELETE /v1/mailboxes/{email}", s.requireScope("mailbox", s.handleMailboxRemove))
 	s.mux.HandleFunc("PUT /v1/mailboxes/{email}/password", s.requireScope("mailbox", s.handleMailboxPasswd))
+	s.mux.HandleFunc("PUT /v1/mailboxes/{email}/quota", s.requireScope("mailbox", s.handleMailboxQuota))
 
 	s.mux.HandleFunc("GET /v1/aliases", s.requireScope("alias", s.handleAliasList))
 	s.mux.HandleFunc("POST /v1/aliases", s.requireScope("alias", s.handleAliasAdd))
@@ -144,6 +145,32 @@ func (s *Server) handleMailboxPasswd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.MailboxPasswd(r.Context(), email, body.Password); err != nil {
+		writeError(w, statusForErr(err), err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleMailboxQuota(w http.ResponseWriter, r *http.Request) {
+	email := r.PathValue("email")
+	var body struct {
+		QuotaBytes int64  `json:"quota_bytes"`
+		Quota      string `json:"quota"` // e.g. "2G" — an alternative to quota_bytes
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	quotaBytes := body.QuotaBytes
+	if quotaBytes <= 0 && body.Quota != "" {
+		parsed, err := mailbox.ParseQuota(body.Quota)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		quotaBytes = parsed
+	}
+	if err := s.store.MailboxSetQuota(r.Context(), email, quotaBytes); err != nil {
 		writeError(w, statusForErr(err), err.Error())
 		return
 	}

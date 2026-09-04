@@ -45,6 +45,7 @@ Usage:
   patrabahok mailbox list [domain]
   patrabahok mailbox remove <user@domain> [--force]
   patrabahok mailbox passwd <user@domain> [--password PASS]
+  patrabahok mailbox quota <user@domain> <quota>    # e.g. 2G, 500M
 
   patrabahok alias add <alias@domain> <target@domain>
   patrabahok alias list [domain]
@@ -318,6 +319,24 @@ func cmdMailbox(ctx context.Context, store *mailbox.Store, args []string) error 
 			return err
 		}
 		ok("Password updated for %s", email)
+		return nil
+	case "quota":
+		email, err := arg(rest, 0, "user@domain")
+		if err != nil {
+			return err
+		}
+		quotaStr, err := arg(rest, 1, "quota (e.g. 2G)")
+		if err != nil {
+			return err
+		}
+		quotaBytes, err := mailbox.ParseQuota(quotaStr)
+		if err != nil {
+			return err
+		}
+		if err := store.MailboxSetQuota(ctx, email, quotaBytes); err != nil {
+			return err
+		}
+		ok("Quota for %s set to %d bytes", email, quotaBytes)
 		return nil
 	default:
 		return fmt.Errorf("unknown mailbox action: %s", action)

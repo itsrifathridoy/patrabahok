@@ -85,5 +85,11 @@ plugin {
   # Applied to every mailbox before its own personal sieve rules — files Rspamd-flagged
   # spam into Junk automatically. See templates/dovecot/sieve/spam-to-junk.sieve.
   sieve_before = /etc/dovecot/sieve/spam-to-junk.sieve
-  quota_rule = *:storage=1G
+  # maildir backend: fast quota tracking via a maintained maildirsize file rather than
+  # rescanning the whole mailbox on every check — the standard choice for Maildir
+  # storage. The actual per-mailbox LIMIT comes from userdb's quota_rule extra field
+  # (dovecot-sql.conf.ext's user_query, reading virtual_users.quota_bytes), not from a
+  # static value here — every mailbox previously shared one hardcoded 1G limit
+  # regardless of what was actually stored in the database for it.
+  quota = maildir:User quota
 }

@@ -50,12 +50,13 @@
     <thead><tr><th>Email</th><th>Quota</th><th>Status</th><th></th></tr></thead>
     <tbody>
       {{range .Mailboxes}}
-      <tr x-data="{ resetting: false }">
+      <tr x-data="{ resetting: false, editingQuota: false }">
         <td class="mono">{{.Email}}</td>
         <td>{{.QuotaHuman}}</td>
         <td>{{if .Enabled}}<span class="badge badge-success">enabled</span>{{else}}<span class="badge badge-muted">disabled</span>{{end}}</td>
         <td style="text-align:right;">
-          <button class="btn btn-sm" @click="resetting = !resetting">Reset password</button>
+          <button class="btn btn-sm" @click="resetting = !resetting; editingQuota = false">Reset password</button>
+          <button class="btn btn-sm" @click="editingQuota = !editingQuota; resetting = false">Change quota</button>
           <button class="btn btn-sm btn-danger"
             hx-delete="/mailboxes/{{.Email}}"
             hx-target="#mailboxes-table" hx-swap="outerHTML"
@@ -63,6 +64,12 @@
           <div x-show="resetting" style="margin-top:8px;">
             <form hx-put="/mailboxes/{{.Email}}/password" hx-target="#mailboxes-table" hx-swap="outerHTML" style="display:flex;gap:6px;">
               <input type="password" name="password" placeholder="New password" required minlength="8">
+              <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+          </div>
+          <div x-show="editingQuota" style="margin-top:8px;">
+            <form hx-put="/mailboxes/{{.Email}}/quota" hx-target="#mailboxes-table" hx-swap="outerHTML" style="display:flex;gap:6px;">
+              <input type="text" name="quota" placeholder="e.g. 2G" required style="width:100px;">
               <button type="submit" class="btn btn-sm btn-primary">Save</button>
             </form>
           </div>

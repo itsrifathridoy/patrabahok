@@ -3,5 +3,8 @@ connect = host=127.0.0.1 dbname={{DB_NAME}} user={{DB_READONLY_USER}} password={
 default_pass_scheme = SHA512-CRYPT
 
 password_query = SELECT email AS user, password FROM virtual_users WHERE email='%u' AND enabled = 1
-user_query = SELECT CONCAT('/var/mail/vhosts/', maildir) AS home, 5000 AS uid, 5000 AS gid FROM virtual_users WHERE email='%u' AND enabled = 1
+# quota_rule is a Dovecot-recognized extra userdb field: returning it per-row is how a
+# per-mailbox quota_bytes value actually takes effect, instead of every mailbox sharing
+# one static quota_rule from dovecot.conf.
+user_query = SELECT CONCAT('/var/mail/vhosts/', maildir) AS home, 5000 AS uid, 5000 AS gid, CONCAT('*:bytes=', quota_bytes) AS quota_rule FROM virtual_users WHERE email='%u' AND enabled = 1
 iterate_query = SELECT email AS user FROM virtual_users WHERE enabled = 1

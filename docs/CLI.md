@@ -26,6 +26,7 @@ patrabahok mailbox add <user@domain> [--quota 500M] [--password PASS]
 patrabahok mailbox list [domain]
 patrabahok mailbox remove <user@domain> [--force]
 patrabahok mailbox passwd <user@domain> [--password PASS]
+patrabahok mailbox quota <user@domain> <quota>    # e.g. 2G, 500M
 ```
 
 The domain must already be added (`patrabahok domain add`) before adding a mailbox in it. If
@@ -33,9 +34,14 @@ The domain must already be added (`patrabahok domain add`) before adding a mailb
 Passwords are hashed with `doveadm pw -s SHA512-CRYPT` (invoked via `argv`, never through a
 shell) before being stored — plaintext passwords are never written to disk or logs.
 
-`--quota` is stored per-mailbox in the database for future use, but is **not currently enforced**
-— Dovecot enforces a single global default quota (1G) for all mailboxes via `quota_rule` in
-`/etc/dovecot/conf.d/99-patrabahok.conf`. See [ROADMAP.md](ROADMAP.md).
+`--quota`/`mailbox quota` set `quota_bytes` per mailbox in the database, and it's genuinely
+enforced by Dovecot — not just stored. `dovecot-sql.conf.ext`'s `user_query` returns
+`quota_bytes` as Dovecot's `quota_rule` extra userdb field on every login/delivery, so each
+mailbox gets its own limit instead of everyone sharing one static value. A `quota mailbox`
+change takes effect immediately (no restart, no cache to invalidate) — Dovecot reads it fresh on
+the mailbox's next IMAP session or delivery. Once a mailbox is actually over quota, LMTP delivery
+is rejected (`552 5.2.2 Quota exceeded`) and Postfix bounces the message back to the sender —
+verify current usage/limit with `doveadm quota get -u <user@domain>`.
 
 ## Aliases
 
@@ -94,6 +100,7 @@ GET    /v1/mailboxes?domain=...
 POST   /v1/mailboxes                     {"email": "...", "password": "...", "quota_bytes": 1073741824}
 DELETE /v1/mailboxes/{email}
 PUT    /v1/mailboxes/{email}/password    {"password": "..."}
+PUT    /v1/mailboxes/{email}/quota       {"quota": "2G"} or {"quota_bytes": 2147483648}
 GET    /v1/aliases?domain=...
 POST   /v1/aliases                       {"source": "...", "destination": "..."}
 DELETE /v1/aliases                       {"source": "...", "destination": "..."}

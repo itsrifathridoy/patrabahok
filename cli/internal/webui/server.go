@@ -63,6 +63,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /mailboxes", s.requireAuth(s.handleMailboxAdd))
 	s.mux.HandleFunc("DELETE /mailboxes/{email}", s.requireAuth(s.handleMailboxDelete))
 	s.mux.HandleFunc("PUT /mailboxes/{email}/password", s.requireAuth(s.handleMailboxPassword))
+	s.mux.HandleFunc("PUT /mailboxes/{email}/quota", s.requireAuth(s.handleMailboxQuota))
 
 	s.mux.HandleFunc("GET /aliases", s.requireAuth(s.handleAliasesPage))
 	s.mux.HandleFunc("POST /aliases", s.requireAuth(s.handleAliasAdd))

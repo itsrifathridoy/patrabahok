@@ -270,6 +270,28 @@ func (s *Store) MailboxPasswd(ctx context.Context, email, password string) error
 	return nil
 }
 
+// MailboxSetQuota changes an existing mailbox's quota. Dovecot reads virtual_users.
+// quota_bytes on every login/delivery via userdb's quota_rule extra field (see
+// templates/dovecot/dovecot-sql.conf.ext.tmpl) — no restart or cache to invalidate,
+// this takes effect on the mailbox's very next IMAP session or delivery.
+func (s *Store) MailboxSetQuota(ctx context.Context, email string, quotaBytes int64) error {
+	if err := ValidateEmail(email); err != nil {
+		return err
+	}
+	if quotaBytes <= 0 {
+		return fmt.Errorf("quota must be greater than zero")
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE virtual_users SET quota_bytes = ? WHERE email = ?`, quotaBytes, email)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("%w: mailbox %q", ErrNotFound, email)
+	}
+	return nil
+}
+
 func (s *Store) AliasAdd(ctx context.Context, source, destination string) error {
 	if err := ValidateEmail(source); err != nil {
 		return fmt.Errorf("invalid alias address: %w", err)

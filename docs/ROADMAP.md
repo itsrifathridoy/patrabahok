@@ -92,11 +92,21 @@ confirmed, not assumed) and the apt-package path on Debian 12, both against a re
 tarball — checksum and signature both verify correctly, and a single-byte tamper to the tarball
 correctly fails signature verification on both.
 
-## Per-mailbox quota enforcement
-The database already stores a `quota_bytes` value per mailbox (set via `patrabahok mailbox add
---quota`), but Dovecot currently enforces one global default quota for everyone. Wiring up
-Dovecot's `dict` quota backend against the same MariaDB table would make per-mailbox quotas
-actually take effect.
+## Done: per-mailbox quota enforcement, live-verified
+Dovecot now reads each mailbox's actual `quota_bytes` instead of enforcing one static global
+limit for everyone. No separate `dict` backend needed — `dovecot-sql.conf.ext`'s existing
+`user_query` (already used for passdb/userdb lookups) just returns `quota_rule` as an extra
+field, which Dovecot recognizes natively; `quota = maildir:User quota` in
+`99-patrabahok.conf.tmpl` reads it. A new `patrabahok mailbox quota <user@domain> <quota>`
+command (plus matching dashboard button and `PUT /v1/mailboxes/{email}/quota` API endpoint)
+changes an existing mailbox's limit — takes effect immediately, no restart, since Dovecot reads
+it fresh on every session/delivery.
+
+Live-tested on all three OSes: `doveadm quota get` confirms the per-mailbox limit is actually
+read from SQL (not a shared static value), delivering a message that would push a mailbox over
+its quota is correctly rejected at LMTP (`552 5.2.2 Quota exceeded`, Postfix bounces it back to
+the sender), and raising the quota via the CLI immediately allows delivery to succeed on retry —
+confirmed through all three interfaces (CLI, dashboard, JSON API).
 
 ## MTA-STS policy hosting
 The installer prints the `_mta-sts` DNS TXT record but doesn't stand up the HTTPS-hosted policy

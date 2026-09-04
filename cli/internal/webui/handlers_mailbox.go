@@ -100,6 +100,24 @@ func (s *Server) handleMailboxPassword(w http.ResponseWriter, r *http.Request) {
 	s.respondMailboxesTable(w, r)
 }
 
+func (s *Server) handleMailboxQuota(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	email := r.PathValue("email")
+	quotaBytes, err := mailbox.ParseQuota(r.FormValue("quota"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.store.MailboxSetQuota(r.Context(), email, quotaBytes); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.respondMailboxesTable(w, r)
+}
+
 func (s *Server) respondMailboxesTable(w http.ResponseWriter, r *http.Request) {
 	data, err := s.mailboxesData(r)
 	if err != nil {
