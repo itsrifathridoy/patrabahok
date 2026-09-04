@@ -34,6 +34,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   create/delete cross-checked against the CLI, password change, session revocation on
   logout) on all three supported OSes.
 
+- Dashboard: Overview home page (live counts, service status, queue/disk state), a DNS
+  Analysis page with per-domain setup steps and a live "Verify DNS now" check
+  (`cli/internal/dnscheck`) that queries the server's own resolver and compares actual
+  A/MX/SPF/DMARC/DKIM records — including the published DKIM key vs. the key currently
+  signing mail — against what's expected, a Diagnostics page (`cli/internal/diag`:
+  service status, `postfix check`/`doveconf -n`/`rspamadm configtest`, TLS expiry, disk
+  usage, recent mail-log issues, fail2ban bans), and an API Tokens page for full CLI
+  parity. Adding a domain now links straight into DNS Analysis for it. Live-tested on
+  all three supported OSes, including a rebuild via the real installer's own `95-cli`
+  phase (not just a dev shortcut) followed by a full `verify` pass.
+
 ### Fixed
 - `lib/core/migrate.sh`: a new schema migration (like `002_api_tokens.sql` above) never
   reached an already-installed server on upgrade, because phase 30-database is marked
