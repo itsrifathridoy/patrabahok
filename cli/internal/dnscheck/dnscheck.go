@@ -9,6 +9,7 @@ package dnscheck
 import (
 	"context"
 	"net"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -111,10 +112,10 @@ func normalizeKey(s string) string {
 	return b.String()
 }
 
-// LocalDKIMKeyFragment extracts the base64 public-key blob from our own generated DNS
-// record text (the "p=..." value), independent of the quoted-string DNS zone-file
-// formatting rspamadm dkim_keygen produces.
-func LocalDKIMKeyFragment(rawRecordText string) string {
+// dequoteZoneText strips the quoted-string DNS zone-file formatting rspamadm
+// dkim_keygen produces (e.g. `( "v=DKIM1; k=rsa;" "p=..." )`) down to the plain record
+// value a DNS provider's API expects: `v=DKIM1; k=rsa;p=...`.
+func dequoteZoneText(rawRecordText string) string {
 	var joined strings.Builder
 	inQuote := false
 	for _, r := range rawRecordText {
@@ -126,7 +127,21 @@ func LocalDKIMKeyFragment(rawRecordText string) string {
 			joined.WriteRune(r)
 		}
 	}
-	full := joined.String()
+	return strings.TrimSpace(joined.String())
+}
+
+// FullDKIMRecordValue returns the full DKIM TXT record value (e.g.
+// "v=DKIM1; k=rsa; p=...") from our own generated DNS record text, suitable for
+// publishing verbatim via a DNS provider's API (no surrounding quotes/line breaks).
+func FullDKIMRecordValue(rawRecordText string) string {
+	return dequoteZoneText(rawRecordText)
+}
+
+// LocalDKIMKeyFragment extracts the base64 public-key blob from our own generated DNS
+// record text (the "p=..." value), independent of the quoted-string DNS zone-file
+// formatting rspamadm dkim_keygen produces.
+func LocalDKIMKeyFragment(rawRecordText string) string {
+	full := dequoteZoneText(rawRecordText)
 	idx := strings.Index(full, "p=")
 	if idx == -1 {
 		return ""
@@ -153,10 +168,30 @@ func checkDKIM(domain, selector, localRecordText string) Check {
 	return Check{Label: label, Expected: "matches locally generated key", Found: found, Pass: pass}
 }
 
-// Analyze runs every check for a domain. dkimRecordText is the raw content of this
-// server's own generated DKIM record (e.g. from sysinfo.DKIMRecord); pass "" to skip
-// the DKIM check (e.g. if no key has been generated for this domain yet).
+// flushCache clears the local unbound resolver's cache for exactly the names this
+// check is about to query. Without this, a name checked before its DNS records existed
+// (the common case right after adding a domain) stays negative-cached — RFC 2308 — for
+// up to that response's TTL, so a retry right after fixing DNS would still report
+// "not found" even though the records are now live. Best-effort: if unbound-control
+// isn't reachable for any reason, the check still runs, just against whatever is
+// already cached.
+func flushCache(names ...string) {
+	for _, n := range names {
+		_ = exec.Command("unbound-control", "flush", n).Run()
+	}
+}
+
+// Analyze runs every check for a domain, always against current DNS (see flushCache).
+// dkimRecordText is the raw content of this server's own generated DKIM record (e.g.
+// from sysinfo.DKIMRecord); pass "" to skip the DKIM check (e.g. if no key has been
+// generated for this domain yet).
 func Analyze(domain, mailHost, serverIP, dkimRecordText string) Report {
+	flushNames := []string{domain, "_dmarc." + domain, "mail._domainkey." + domain}
+	if mailHost != "" {
+		flushNames = append(flushNames, mailHost)
+	}
+	flushCache(flushNames...)
+
 	var checks []Check
 	if serverIP != "" && mailHost != "" {
 		checks = append(checks, checkA(mailHost, serverIP))

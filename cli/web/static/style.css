@@ -169,7 +169,15 @@ td {
 
 tr:last-child td { border-bottom: none; }
 
-.mono { font-family: var(--mono); font-size: 12.5px; }
+.mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+
+.table-scroll { overflow-x: auto; }
+
+.check-table { table-layout: fixed; }
+.check-table col.col-check { width: 22%; }
+.check-table col.col-expected { width: 24%; }
+.check-table col.col-found { width: 44%; }
+.check-table col.col-status { width: 10%; }
 
 code {
   font-family: var(--mono);
@@ -410,6 +418,28 @@ pre.dns-record {
   height: 100%;
   background: var(--accent);
   border-radius: 999px;
+}
+
+.cf-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .cf-methods { grid-template-columns: 1fr; }
+}
+
+.cf-method {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.cf-method h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0 0 10px;
 }
 
 .htmx-indicator {

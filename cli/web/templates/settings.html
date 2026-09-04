@@ -17,4 +17,91 @@
     <button type="submit" class="btn btn-primary">Update password</button>
   </form>
 </div>
+
+<div class="card">
+  <h2>Cloudflare</h2>
+  <p class="text-muted" style="margin-top:-6px;">
+    Connect Cloudflare to auto-configure DNS records for domains whose zone lives in
+    your account, instead of adding them by hand. You can still always configure DNS
+    manually — connecting Cloudflare just adds a faster option on the DNS Analysis page
+    when it applies.
+  </p>
+  {{template "cloudflare_section" .Cloudflare}}
+</div>
+{{end}}
+
+{{define "cloudflare_section"}}
+<div id="cloudflare-section">
+  {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
+  {{if .Notice}}<div class="flash flash-success">{{.Notice}}</div>{{end}}
+
+  {{if and .Settings.Connected (eq .Settings.Mode "oauth")}}
+  <p>
+    <span class="badge badge-success">connected via OAuth</span>
+    client <code>{{.Settings.OAuthClientID}}</code> — since {{.Settings.ConnectedAt.Format "2006-01-02"}}
+  </p>
+  <button class="btn btn-danger btn-sm"
+    hx-delete="/settings/cloudflare" hx-target="#cloudflare-section" hx-swap="outerHTML"
+    hx-confirm="Disconnect Cloudflare? Domains will fall back to manual DNS setup.">Disconnect</button>
+
+  {{else if and .Settings.Connected (eq .Settings.Mode "token")}}
+  <p>
+    <span class="badge badge-success">connected</span>
+    token ending <code>{{.Settings.TokenPreview}}</code> — since {{.Settings.ConnectedAt.Format "2006-01-02"}}
+  </p>
+  <button class="btn btn-danger btn-sm"
+    hx-delete="/settings/cloudflare" hx-target="#cloudflare-section" hx-swap="outerHTML"
+    hx-confirm="Disconnect Cloudflare? Domains will fall back to manual DNS setup.">Disconnect</button>
+
+  {{else}}
+    {{if .Settings.PendingOAuthAuth}}
+    <div class="flash flash-success" style="margin-bottom:14px;">
+      OAuth client <code>{{.Settings.OAuthClientID}}</code> saved. Finish connecting:
+    </div>
+    <p>
+      <a class="btn btn-primary" href="/settings/cloudflare/authorize">Connect with Cloudflare</a>
+      <button class="btn btn-danger btn-sm" style="margin-left:8px;"
+        hx-delete="/settings/cloudflare" hx-target="#cloudflare-section" hx-swap="outerHTML"
+        hx-confirm="Remove this OAuth client?">Remove</button>
+    </p>
+    {{else}}
+    <div class="cf-methods">
+      <div class="cf-method">
+        <h3>Connect with Cloudflare (recommended)</h3>
+        <ol class="steps">
+          <li>In Cloudflare: <strong>Manage Account → OAuth clients → Create client</strong>.</li>
+          <li>Grant type: <strong>Authorization Code</strong>. Redirect URL: <code class="mono">{{.RedirectURI}}</code></li>
+          <li>Scopes: enable <strong>DNS Write</strong> and <strong>Zone Read</strong> (or equivalent Zone/DNS permissions) for the zone(s) you want this server to manage.</li>
+          <li>Save the client, then paste its Client ID and Client Secret below.</li>
+        </ol>
+        <form hx-post="/settings/cloudflare/oauth-client" hx-target="#cloudflare-section" hx-swap="outerHTML">
+          <div class="field">
+            <label for="cf-client-id">Client ID</label>
+            <input type="text" id="cf-client-id" name="client_id" required>
+          </div>
+          <div class="field">
+            <label for="cf-client-secret">Client Secret</label>
+            <input type="password" id="cf-client-secret" name="client_secret" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Save & continue</button>
+        </form>
+      </div>
+
+      <div class="cf-method">
+        <h3>Or: paste an API token</h3>
+        <p class="text-muted">Simpler, no redirect URL to configure — create one at Cloudflare → My Profile → API Tokens → Create Token, with <code>Zone:DNS:Edit</code> and <code>Zone:Zone:Read</code> permissions.</p>
+        <form hx-post="/settings/cloudflare" hx-target="#cloudflare-section" hx-swap="outerHTML">
+          <div class="form-row">
+            <div class="field">
+              <label for="cf-token">Cloudflare API token</label>
+              <input type="password" id="cf-token" name="token" required>
+            </div>
+            <button type="submit" class="btn">Connect</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {{end}}
+  {{end}}
+</div>
 {{end}}

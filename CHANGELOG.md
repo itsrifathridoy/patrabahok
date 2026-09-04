@@ -26,7 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   mailboxes, aliases, DKIM/DNS records, mail queue, and dashboard-admin management — built
   instead of installing PostfixAdmin. Own login system separate from API tokens
   (`admin_users`/`admin_sessions`, schema migration `003_admin_web.sql`): argon2id password
-  hashing, `HttpOnly`/`Secure`/`SameSite=Strict` sessions, a dedicated fail2ban jail for
+  hashing, `HttpOnly`/`Secure`/`SameSite=Lax` sessions, a dedicated fail2ban jail for
   failed logins, username-enumeration-resistant timing. New `patrabahok webadmin
   add/list/remove` CLI commands; the installer creates one admin account automatically and
   prints its password once. See `docs/WEB-UI.md`. Live-tested end to end (login incl. wrong
@@ -45,11 +45,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   all three supported OSes, including a rebuild via the real installer's own `95-cli`
   phase (not just a dev shortcut) followed by a full `verify` pass.
 
+- Cloudflare integration (`cli/internal/cloudflare`, schema migrations `004`/`005`): when a
+  domain's zone is on a connected Cloudflare account, DNS Analysis gets an
+  "Auto-configure DNS via Cloudflare" button that creates/updates the required A/MX/SPF/
+  DMARC/DKIM records directly via the Cloudflare API — idempotent and conservative (never
+  touches unrelated records at a shared name). Two ways to connect from Settings: OAuth
+  2.0 Authorization Code flow ("Connect with Cloudflare", using an OAuth client the admin
+  registers under their own Cloudflare account) or a manually pasted scoped API token.
+  Either way only an AES-GCM-encrypted value reaches the database — the key lives in
+  `/etc/patrabahok/secrets.env`, generated on first use (`cli/internal/secretkey`).
+  Live-tested: OAuth client save, the authorize redirect (verified against the real
+  `dash.cloudflare.com/oauth2/auth` endpoint), manual token verification against the real
+  Cloudflare API, and disconnect, on all three supported OSes.
+
 ### Fixed
 - `lib/core/migrate.sh`: a new schema migration (like `002_api_tokens.sql` above) never
   reached an already-installed server on upgrade, because phase 30-database is marked
   done and gets skipped on re-run. Pending migrations now apply unconditionally on every
   installer invocation, tracked per-file via the `schema_migrations` table.
+- Domains added after initial install (via the CLI, API, or dashboard) got no DKIM key
+  and no DNS records dump — that generation only ever ran for the domain(s) known at
+  install time. `mailbox.Store.DomainAdd` now provisions both, for every domain, through
+  every interface, since it's the one shared path all three use.
+- `patrabahokd`'s systemd sandbox (`ProtectSystem=strict`, `ProtectHome=read-only`) silently
+  blocked the dashboard process from writing the DKIM key, the DNS records dump, or a
+  first-use secrets-file key — even running as root, sandboxing still applies. Moved the
+  DNS dump out from under `/root` (which stays blocked even via `ReadWritePaths=` in
+  practice) to a dedicated `/var/lib/patrabahok/dns-records`, and added it plus
+  `/var/lib/rspamd/dkim` and `/etc/patrabahok` to `ReadWritePaths=`.
+- `95-cli`'s `systemctl enable --now` never restarts an already-running dashboard, so a
+  re-run that rebuilds the binaries or changes the unit file (as above) silently left the
+  OLD process running until something else restarted it. Now does `enable` + an explicit
+  `restart`.
+- DNS Analysis's live verify could report a domain's records as "not found" even after
+  they were correctly published, because the local resolver had negative-cached an
+  earlier "doesn't exist yet" answer (RFC 2308) from before the admin added them — a
+  retry right after fixing DNS wouldn't reflect reality until that cache entry's TTL
+  expired. The verify now flushes the local resolver's cache for the exact names it's
+  about to check first.
 - Some minimal cloud images (seen on Debian 12) don't ship `rsyslog`, so
   `/var/log/auth.log`/`/var/log/mail.log` never get created and fail2ban's sshd jail
   hard-failed its entire startup. `rsyslog` is now installed explicitly and both log

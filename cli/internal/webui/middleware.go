@@ -43,6 +43,15 @@ func redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// SameSite=Lax, not Strict: the Cloudflare "Connect" OAuth flow (see
+// handlers_cloudflare.go) lands the browser back on this app via a cross-site top-level
+// redirect from dash.cloudflare.com, which Strict cookies are never sent on — that would
+// break the callback's requireAuth check entirely. Lax still blocks the cookie on
+// cross-site POST/fetch requests (the actual state-changing actions), which is what
+// matters for CSRF here, so this keeps the same practical protection while allowing the
+// one thing Strict can't do: an external redirect back to a logged-in page.
+const sessionCookieSameSite = http.SameSiteLaxMode
+
 func setSessionCookie(w http.ResponseWriter, token string, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     adminauth.SessionCookieName,
@@ -50,7 +59,7 @@ func setSessionCookie(w http.ResponseWriter, token string, secure bool) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sessionCookieSameSite,
 		MaxAge:   7 * 24 * 60 * 60,
 	})
 }
@@ -62,7 +71,7 @@ func clearSessionCookie(w http.ResponseWriter) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: sessionCookieSameSite,
 		MaxAge:   -1,
 	})
 }

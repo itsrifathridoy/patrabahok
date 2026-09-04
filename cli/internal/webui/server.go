@@ -17,23 +17,26 @@ import (
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/adminauth"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/cloudflare"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
 	"github.com/itsrifathridoy/patrabahok/cli/web"
 )
 
 type Server struct {
-	store  *mailbox.Store
-	admins *adminauth.Store
-	tokens *authtoken.Store
-	mux    *http.ServeMux
+	store      *mailbox.Store
+	admins     *adminauth.Store
+	tokens     *authtoken.Store
+	cloudflare *cloudflare.Store
+	mux        *http.ServeMux
 }
 
 func New(db *sql.DB) *Server {
 	s := &Server{
-		store:  mailbox.NewStore(db),
-		admins: adminauth.NewStore(db),
-		tokens: authtoken.NewStore(db),
-		mux:    http.NewServeMux(),
+		store:      mailbox.NewStore(db),
+		admins:     adminauth.NewStore(db),
+		tokens:     authtoken.NewStore(db),
+		cloudflare: cloudflare.NewStore(db),
+		mux:        http.NewServeMux(),
 	}
 	s.routes()
 	return s
@@ -66,6 +69,7 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /dkim", s.requireAuth(s.handleDKIMPage))
 	s.mux.HandleFunc("GET /dkim/verify", s.requireAuth(s.handleDKIMVerify))
+	s.mux.HandleFunc("POST /dkim/cloudflare-apply", s.requireAuth(s.handleDKIMCloudflareApply))
 
 	s.mux.HandleFunc("GET /queue", s.requireAuth(s.handleQueuePage))
 	s.mux.HandleFunc("GET /queue/partial", s.requireAuth(s.handleQueuePartial))
@@ -84,6 +88,11 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /settings", s.requireAuth(s.handleSettingsPage))
 	s.mux.HandleFunc("POST /settings/password", s.requireAuth(s.handleSettingsPassword))
+	s.mux.HandleFunc("POST /settings/cloudflare", s.requireAuth(s.handleCloudflareConnect))
+	s.mux.HandleFunc("DELETE /settings/cloudflare", s.requireAuth(s.handleCloudflareDisconnect))
+	s.mux.HandleFunc("POST /settings/cloudflare/oauth-client", s.requireAuth(s.handleCloudflareOAuthClientSave))
+	s.mux.HandleFunc("GET /settings/cloudflare/authorize", s.requireAuth(s.handleCloudflareAuthorize))
+	s.mux.HandleFunc("GET /settings/cloudflare/callback", s.requireAuth(s.handleCloudflareCallback))
 }
 
 func cacheHeaders(h http.Handler) http.Handler {

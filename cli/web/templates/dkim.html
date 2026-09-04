@@ -28,6 +28,24 @@
     <li>Add the <strong>DMARC</strong> TXT record shown below — starts at <code>p=none</code> (monitor only) on purpose; move to <code>quarantine</code>/<code>reject</code> later once you've confirmed mail passes.</li>
     <li>Click <strong>Verify DNS now</strong> below once records are added (propagation can take a few minutes to a few hours).</li>
   </ol>
+
+  {{if .CloudflareZone}}
+  <div class="flash flash-success" style="margin-top:14px;">
+    <strong>{{.Selected}}</strong> is on Cloudflare (zone: {{.CloudflareZone}}) — skip the manual steps above:
+    <button class="btn btn-primary btn-sm" style="margin-left:8px;"
+      hx-post="/dkim/cloudflare-apply?domain={{.Selected}}" hx-target="#dns-analysis" hx-swap="outerHTML" hx-indicator="#verify-spinner">
+      Auto-configure DNS via Cloudflare
+    </button>
+  </div>
+  {{else if .CloudflareConnected}}
+  <p class="text-muted" style="margin-top:14px;margin-bottom:0;">
+    Cloudflare is connected, but no zone matching {{.Selected}} was found in that account — configure manually below, or connect the right account in <a href="/settings">Settings</a>.
+  </p>
+  {{else}}
+  <p class="text-muted" style="margin-top:14px;margin-bottom:0;">
+    Connect Cloudflare in <a href="/settings">Settings</a> to auto-configure these records instead of adding them by hand.
+  </p>
+  {{end}}
 </div>
 
 <div class="card">
@@ -54,21 +72,50 @@
 
 {{define "dns_analysis"}}
 <div id="dns-analysis">
-  {{if .Checked}}
-    {{if .Report.Checks}}
+  {{if .CloudflareApplyErr}}
+  <div class="flash flash-error">{{.CloudflareApplyErr}}</div>
+  {{end}}
+  {{if .CloudflareApplyResults}}
+  <div class="table-scroll" style="margin-bottom:16px;">
     <table>
-      <thead><tr><th>Check</th><th>Expected</th><th>Found</th><th>Status</th></tr></thead>
+      <thead><tr><th>Cloudflare record</th><th>Result</th><th>Value</th></tr></thead>
       <tbody>
-        {{range .Report.Checks}}
+        {{range .CloudflareApplyResults}}
         <tr>
           <td>{{.Label}}</td>
-          <td class="mono">{{.Expected}}</td>
-          <td class="mono">{{.Found}}</td>
-          <td>{{if .Pass}}<span class="badge badge-success">pass</span>{{else}}<span class="badge badge-error">fail</span>{{end}}</td>
+          <td>
+            {{if eq .Action "created"}}<span class="badge badge-success">created</span>
+            {{else if eq .Action "updated"}}<span class="badge badge-success">updated</span>
+            {{else if eq .Action "unchanged"}}<span class="badge badge-muted">already correct</span>
+            {{else if eq .Action "skipped"}}<span class="badge badge-warn">skipped</span>
+            {{else}}<span class="badge badge-error">error</span>{{end}}
+          </td>
+          <td class="mono">{{if .Err}}{{.Err.Error}}{{else}}{{.Detail}}{{end}}</td>
         </tr>
         {{end}}
       </tbody>
     </table>
+  </div>
+  {{end}}
+
+  {{if .Checked}}
+    {{if .Report.Checks}}
+    <div class="table-scroll">
+      <table class="check-table">
+        <colgroup><col class="col-check"><col class="col-expected"><col class="col-found"><col class="col-status"></colgroup>
+        <thead><tr><th>Check</th><th>Expected</th><th>Found</th><th>Status</th></tr></thead>
+        <tbody>
+          {{range .Report.Checks}}
+          <tr>
+            <td>{{.Label}}</td>
+            <td class="mono">{{.Expected}}</td>
+            <td class="mono">{{.Found}}</td>
+            <td>{{if .Pass}}<span class="badge badge-success">pass</span>{{else}}<span class="badge badge-error">fail</span>{{end}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
     {{if .Report.AllPass}}
     <div class="flash flash-success" style="margin-top:14px;">All checks pass — this domain is fully configured.</div>
     {{else}}

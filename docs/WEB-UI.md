@@ -46,10 +46,14 @@ other admins) from the **Admins** page or `patrabahok webadmin add/list/remove`.
 - **Mailboxes** — add/remove mailboxes, reset passwords, set quota at creation
 - **Aliases** — add/remove forwarding rules
 - **DNS analysis** — the step-by-step DNS records a domain needs (A/MX/SPF/DKIM/DMARC), plus a
-  **live verify**: it queries the server's own resolver and compares what's actually published
-  against what this server expects — including comparing the live DKIM TXT record against the
-  key this server currently signs with, so a stale record (e.g. after a reinstall regenerated the
-  key) shows up as a clear "fail" instead of silently breaking delivery
+  **live verify**: it flushes the local resolver's cache for those exact names first (so a check
+  right after fixing DNS doesn't report a stale negative result) and then queries the server's own
+  resolver, comparing what's actually published against what this server expects — including
+  comparing the live DKIM TXT record against the key this server currently signs with, so a stale
+  record (e.g. after a reinstall regenerated the key) shows up as a clear "fail" instead of
+  silently breaking delivery. If the domain's zone is on a connected Cloudflare account, an
+  **"Auto-configure DNS via Cloudflare"** button creates/updates all the required records directly
+  via the Cloudflare API instead of copying them by hand.
 - **Mail queue** — view and flush Postfix's queue
 - **Diagnostics** — service status, `postfix check`/`doveconf -n`/`rspamadm configtest` output,
   TLS certificate expiry, disk usage, recent mail-log errors/warnings/bounces, and current
@@ -72,15 +76,41 @@ tree, no external CDN at runtime — both libraries are vendored under `cli/web/
 compiled directly into the `patrabahokd` binary via Go's `embed` package, so the deployed server
 has no separate files to keep in sync with the binary.
 
+## Cloudflare integration
+
+Connect an account from **Settings** to auto-configure DNS on the DNS Analysis page instead of
+copying records by hand. Two ways to connect:
+
+- **OAuth (recommended)** — register an OAuth client under your own Cloudflare account (Manage
+  Account → OAuth clients → Create client, Authorization Code grant, redirect URL = the one shown
+  in Settings, scoped to DNS Write + Zone Read), paste its Client ID/Secret, then click **Connect
+  with Cloudflare** to complete Cloudflare's own consent screen. Access tokens are refreshed
+  automatically using the stored refresh token.
+- **API token** — simpler, no redirect URL to register: create a scoped token at Cloudflare → My
+  Profile → API Tokens → Create Token (`Zone:DNS:Edit`, `Zone:Zone:Read`) and paste it directly.
+
+Either way, only an AES-GCM-encrypted value ever reaches the database — the encryption key lives
+in `/etc/patrabahok/secrets.env` (root-only, 0600), generated on first use the same way the
+installer's own secrets are (`cli/internal/secretkey`), so a database-only compromise doesn't hand
+over live Cloudflare API access.
+
+Auto-configure is conservative: it only ever creates or updates the exact records a domain needs
+(A on the mail hostname, MX, SPF/DMARC/DKIM TXT at their specific names) and never touches
+unrelated records at the same name (e.g. another TXT record for a different service sitting at the
+domain apex, or other MX records already pointing elsewhere).
+
 ## Security
 
 - **Separate login system from the API.** Dashboard accounts (`admin_users`/`admin_sessions`
   tables) use real username/password authentication with argon2id password hashing — a proper,
   slow KDF, appropriate for human-chosen secrets (unlike API tokens, which are already
   high-entropy random values and use a fast hash instead — see [SECURITY.md](SECURITY.md)).
-- **Session cookies**: `HttpOnly`, `Secure`, `SameSite=Strict` — the last of these is the primary
-  CSRF defense (the cookie is simply never sent on a cross-site request), which is why the
-  dashboard doesn't additionally implement per-form CSRF tokens.
+- **Session cookies**: `HttpOnly`, `Secure`, `SameSite=Lax`. Lax (not Strict) is required so the
+  session survives the redirect back from Cloudflare's OAuth consent screen — a cross-site
+  top-level navigation, which Strict cookies are never sent on — while still blocking the cookie
+  on cross-site POST/fetch requests, which is what actually matters for CSRF on state-changing
+  actions. The OAuth flow itself additionally uses its own short-lived, random `state` cookie,
+  the standard OAuth CSRF defense, independent of the session cookie's policy.
 - **fail2ban jail**: failed logins are logged to the system's authpriv syslog facility (landing
   in `/var/log/auth.log` the same way SSH/Postfix/Dovecot auth failures do) and watched by a
   dedicated `patrabahok-dashboard` jail — same progressive-ban policy as everything else.
