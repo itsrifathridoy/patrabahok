@@ -1,0 +1,25 @@
+[Unit]
+Description=patrabahok Mail — webmail client (Next.js)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/patrabahok-mail
+EnvironmentFile=/opt/patrabahok-mail/.env
+ExecStart={{NODE_BIN}} server.js
+Restart=on-failure
+RestartSec=2
+# Same as patrabahokd (cli/internal/webui): needs to read the mail server's own
+# Let's Encrypt private key, which is root-only — running as a dedicated unprivileged
+# user would need ACL workarounds for that single file for no real security gain here,
+# since ProtectSystem=strict/NoNewPrivileges/ReadWritePaths already scope what this
+# process can *write* regardless of which user it runs as.
+User=root
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/patrabahok-mail
+
+[Install]
+WantedBy=multi-user.target

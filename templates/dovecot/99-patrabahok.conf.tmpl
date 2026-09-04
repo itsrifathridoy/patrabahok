@@ -82,5 +82,8 @@ protocol imap {
 
 plugin {
   sieve = file:~/sieve;active=~/.dovecot.sieve
+  # Applied to every mailbox before its own personal sieve rules — files Rspamd-flagged
+  # spam into Junk automatically. See templates/dovecot/sieve/spam-to-junk.sieve.
+  sieve_before = /etc/dovecot/sieve/spam-to-junk.sieve
   quota_rule = *:storage=1G
 }

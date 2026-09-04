@@ -29,6 +29,12 @@ phase_run() {
     /etc/dovecot/conf.d/99-patrabahok.conf \
     "TLS_CERT=${tls_cert_dir}/fullchain.pem" "TLS_KEY=${tls_cert_dir}/privkey.pem"
 
+  mkdir -p /etc/dovecot/sieve
+  cp "$PATRABAHOK_HOME/templates/dovecot/sieve/spam-to-junk.sieve" /etc/dovecot/sieve/spam-to-junk.sieve
+  # Pre-compiled so LMTP delivery (running as vmail) never needs write access to
+  # /etc/dovecot/sieve to create the .svbin cache itself.
+  sievec /etc/dovecot/sieve/spam-to-junk.sieve || die "Failed to compile the global spam-to-Junk sieve script."
+
   if [ -f /etc/dovecot/conf.d/10-auth.conf ]; then
     sed -i 's/^!include auth-system\.conf\.ext/#!include auth-system.conf.ext/' /etc/dovecot/conf.d/10-auth.conf
   fi

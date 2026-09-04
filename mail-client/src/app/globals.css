@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fdf3e7;
+  --surface: #fffdf9;
+  --surface-2: #f7ead9;
+  --border: #ecdcc4;
+  --text: #241c15;
+  --text-muted: #93826c;
+  --accent: #ff6a3d;
+  --accent-hover: #ea5a2d;
+  --accent-contrast: #fffdf9;
+  --mint: #2ec4a6;
+  --lavender: #8b7ff0;
+  --danger: #d94f4f;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 1px 2px rgba(64, 40, 15, 0.05), 0 8px 24px rgba(64, 40, 15, 0.06);
+  --font-sans: var(--font-geist-sans), "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-mint: var(--mint);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
