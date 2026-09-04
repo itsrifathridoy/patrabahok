@@ -38,14 +38,15 @@ func mailHostFunc() string {
 }
 
 var funcMap = template.FuncMap{
-	"mailHost": mailHostFunc,
+	"mailHost":     mailHostFunc,
+	"assetVersion": func() string { return web.AssetVersion },
 }
 
 func init() {
 	for name, file := range pageFiles {
 		pageTemplates[name] = template.Must(template.New("layout.html").Funcs(funcMap).ParseFS(web.TemplatesFS, "templates/layout.html", file))
 	}
-	loginTemplate = template.Must(template.ParseFS(web.TemplatesFS, "templates/login.html"))
+	loginTemplate = template.Must(template.New("login.html").Funcs(funcMap).ParseFS(web.TemplatesFS, "templates/login.html"))
 }
 
 func renderPage(w http.ResponseWriter, page string, data any) {
