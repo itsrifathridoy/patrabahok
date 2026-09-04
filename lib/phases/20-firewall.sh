@@ -40,13 +40,22 @@ phase_run() {
   render_template "$PATRABAHOK_HOME/templates/fail2ban/jail.local.tmpl" /etc/fail2ban/jail.local \
     "ADMIN_EMAIL=${admin_email}"
 
-  # rsyslog (installed in phase 10) creates /var/log/auth.log and /var/log/mail.log on
-  # first matching event, not at startup — on a quiet fresh server that may not have
-  # happened yet. fail2ban's sshd jail hard-fails its whole startup if auth.log doesn't
-  # exist yet, so guarantee both files exist before starting it.
-  touch /var/log/auth.log /var/log/mail.log
-  chmod 640 /var/log/auth.log /var/log/mail.log
-  chown root:adm /var/log/auth.log /var/log/mail.log 2>/dev/null || true
+  # rsyslog (installed in phase 10) creates /var/log/auth.log and /var/log/mail.log
+  # lazily, on the first matching event — not at startup. fail2ban's sshd jail
+  # hard-fails its whole startup if auth.log doesn't exist yet, so trigger real syslog
+  # messages to make rsyslog create both files itself (with its own correct ownership)
+  # rather than us guessing it: an earlier version of this fix pre-created them as
+  # root:adm 640, which rsyslog (running as the unprivileged "syslog" user, not root)
+  # then couldn't actually write to — the files existed but stayed permanently empty.
+  logger -p authpriv.info "patrabahok: initializing auth.log"
+  logger -p mail.info "patrabahok: initializing mail.log"
+
+  local log_tries=0
+  until [ -s /var/log/auth.log ] && [ -s /var/log/mail.log ]; do
+    log_tries=$((log_tries + 1))
+    [ "$log_tries" -gt 10 ] && { log_warn "rsyslog did not create auth.log/mail.log in time — fail2ban's sshd jail may fail to start."; break; }
+    sleep 1
+  done
 
   systemctl enable --now fail2ban >/dev/null 2>&1
   systemctl restart fail2ban
