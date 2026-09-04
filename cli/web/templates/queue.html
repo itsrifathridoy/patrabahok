@@ -1,0 +1,22 @@
+{{define "content"}}
+<h1>Mail queue</h1>
+<p class="subtitle">Messages Postfix currently has queued for delivery.</p>
+
+<div class="toolbar">
+  <div></div>
+  <div style="display:flex; gap:8px;">
+    <button class="btn" hx-get="/queue/partial" hx-target="#queue-body" hx-swap="innerHTML">Refresh</button>
+    <button class="btn btn-primary" hx-post="/queue/flush" hx-target="#queue-body" hx-swap="innerHTML" hx-confirm="Flush the mail queue now?">Flush queue</button>
+  </div>
+</div>
+
+<div class="card">
+  <div id="queue-body">
+    {{template "queue_body" .}}
+  </div>
+</div>
+{{end}}
+
+{{define "queue_body"}}
+<pre class="dns-record">{{if .Queue}}{{.Queue}}{{else}}Mail queue is empty.{{end}}</pre>
+{{end}}

@@ -19,7 +19,7 @@ phase_run() {
   local ssh_port
   ssh_port="$(detect_ssh_port)"
 
-  log_info "Configuring ufw (SSH on ${ssh_port}, SMTP 25/587/465, IMAPS 993, HTTP(S) 80/443)..."
+  log_info "Configuring ufw (SSH on ${ssh_port}, SMTP 25/587/465, IMAPS 993, HTTP(S) 80/443, dashboard 8443)..."
   ufw --force reset >/dev/null
   ufw default deny incoming >/dev/null
   ufw default allow outgoing >/dev/null
@@ -31,9 +31,13 @@ phase_run() {
   ufw allow 993/tcp comment 'imaps' >/dev/null
   ufw allow 80/tcp comment 'acme-http-01' >/dev/null
   ufw allow 443/tcp comment 'https' >/dev/null
+  ufw allow 8443/tcp comment 'patrabahok-dashboard' >/dev/null
 
   ufw --force enable >/dev/null
   log_ok "ufw enabled: $(ufw status | head -n1)"
+
+  install -m 0644 "$PATRABAHOK_HOME/templates/fail2ban/filter-patrabahok-dashboard.conf" \
+    /etc/fail2ban/filter.d/patrabahok-dashboard.conf
 
   local admin_email
   admin_email="$(state_get admin_email root@localhost)"

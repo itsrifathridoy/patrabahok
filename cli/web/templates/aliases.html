@@ -1,0 +1,51 @@
+{{define "content"}}
+<h1>Aliases</h1>
+<p class="subtitle">Forward mail from one address to another.</p>
+
+<div class="card">
+  <h2>Add an alias</h2>
+  <form hx-post="/aliases" hx-target="#aliases-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="form-row">
+      <div class="field">
+        <label for="source">From (alias)</label>
+        <input type="text" id="source" name="source" placeholder="sales@example.com" required>
+      </div>
+      <div class="field">
+        <label for="destination">To (target)</label>
+        <input type="text" id="destination" name="destination" placeholder="you@example.com" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Add alias</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  {{template "aliases_table" .}}
+</div>
+{{end}}
+
+{{define "aliases_table"}}
+<div id="aliases-table">
+  {{if .Aliases}}
+  <table>
+    <thead><tr><th>From</th><th>To</th><th></th></tr></thead>
+    <tbody>
+      {{range .Aliases}}
+      <tr>
+        <td class="mono">{{.Source}}</td>
+        <td class="mono">{{.Destination}}</td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm btn-danger"
+            hx-delete="/aliases?source={{.Source}}&destination={{.Destination}}"
+            hx-target="#aliases-table" hx-swap="outerHTML"
+            hx-confirm="Delete this alias?">Delete</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty">No aliases yet.</div>
+  {{end}}
+</div>
+{{end}}

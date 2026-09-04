@@ -1,0 +1,48 @@
+{{define "content"}}
+<h1>Admins</h1>
+<p class="subtitle">Accounts that can sign in to this dashboard.</p>
+
+<div class="card">
+  <h2>Add an admin</h2>
+  <form hx-post="/admins" hx-target="#admins-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="form-row">
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
+      </div>
+      <button type="submit" class="btn btn-primary">Add admin</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  {{template "admins_table" .}}
+</div>
+{{end}}
+
+{{define "admins_table"}}
+<div id="admins-table">
+  <table>
+    <thead><tr><th>Username</th><th></th></tr></thead>
+    <tbody>
+      {{range .Admins}}
+      <tr>
+        <td class="mono">{{.Username}}{{if eq .Username $.CurrentUser}} <span class="badge badge-muted">you</span>{{end}}</td>
+        <td style="text-align:right;">
+          {{if ne .Username $.CurrentUser}}
+          <button class="btn btn-sm btn-danger"
+            hx-delete="/admins/{{.Username}}"
+            hx-target="#admins-table" hx-swap="outerHTML"
+            hx-confirm="Remove admin {{.Username}}?">Remove</button>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

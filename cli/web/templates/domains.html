@@ -1,0 +1,46 @@
+{{define "content"}}
+<h1>Domains</h1>
+<p class="subtitle">Domains your mail server accepts and sends mail for.</p>
+
+<div class="card">
+  <h2>Add a domain</h2>
+  <form hx-post="/domains" hx-target="#domains-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="form-row">
+      <div class="field">
+        <label for="name">Domain</label>
+        <input type="text" id="name" name="name" placeholder="example.com" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Add domain</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  {{template "domains_table" .}}
+</div>
+{{end}}
+
+{{define "domains_table"}}
+<div id="domains-table">
+  {{if .Domains}}
+  <table>
+    <thead><tr><th>Domain</th><th></th></tr></thead>
+    <tbody>
+      {{range .Domains}}
+      <tr>
+        <td class="mono">{{.Name}}</td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm btn-danger"
+            hx-delete="/domains/{{.Name}}"
+            hx-target="#domains-table" hx-swap="outerHTML"
+            hx-confirm="Delete {{.Name}} and all its mailboxes/aliases?">Delete</button>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty">No domains yet. Add one above.</div>
+  {{end}}
+</div>
+{{end}}

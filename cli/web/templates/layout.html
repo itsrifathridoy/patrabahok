@@ -1,0 +1,32 @@
+{{define "layout"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — patrabahok</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/alpine.min.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="sidebar">
+      <div class="brand">patrabahok</div>
+      <a href="/domains" class="{{if eq .Active "domains"}}active{{end}}">Domains</a>
+      <a href="/mailboxes" class="{{if eq .Active "mailboxes"}}active{{end}}">Mailboxes</a>
+      <a href="/aliases" class="{{if eq .Active "aliases"}}active{{end}}">Aliases</a>
+      <a href="/dkim" class="{{if eq .Active "dkim"}}active{{end}}">DKIM &amp; DNS</a>
+      <a href="/queue" class="{{if eq .Active "queue"}}active{{end}}">Mail queue</a>
+      <a href="/admins" class="{{if eq .Active "admins"}}active{{end}}">Admins</a>
+      <div class="spacer"></div>
+      <a href="/settings" class="{{if eq .Active "settings"}}active{{end}}">Settings</a>
+      <form method="post" action="/logout"><button type="submit" class="btn" style="width:100%;margin-top:4px;">Log out</button></form>
+    </nav>
+    <main class="main">
+      {{template "content" .}}
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

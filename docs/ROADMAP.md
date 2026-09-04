@@ -37,13 +37,22 @@ itself) — that's a real follow-up, not just a nice-to-have, since build-from-s
 install re-runs `go build` rather than installing a binary that went through the same
 signed-release path as everything else.
 
-## PostfixAdmin
-Optional web UI (PHP + Nginx + PHP-FPM) for managing domains/mailboxes/aliases against the same
-MariaDB schema, for admins who prefer a browser over the CLI.
+## Done: custom admin web dashboard, live-verified
+Built instead of installing PostfixAdmin: a server-rendered dashboard (Go `html/template` +
+htmx + Alpine.js, vendored/embedded — no Node build step, no npm dependency tree, no CDN at
+runtime) served directly by `patrabahokd` over HTTPS on `:8443`, reusing the mail server's own
+Let's Encrypt certificate (auto-reloaded on renewal, no restart needed). Own username/password
+login system (argon2id, `HttpOnly`/`Secure`/`SameSite=Strict` sessions), separate from the API's
+bearer tokens, with a dedicated fail2ban jail for failed logins. See [WEB-UI.md](WEB-UI.md).
+Live-tested end to end on all three OSes: login (including wrong-password rejection and the
+fail2ban filter matching a real failed attempt), every page, mailbox create/delete via the
+dashboard cross-checked against the CLI, password change, and session revocation on logout.
 
-## Roundcube
-Optional webmail client (PHP + Nginx + PHP-FPM), IMAP/SMTP backend pointing at the local
-Dovecot/Postfix.
+## Webmail
+Reading/composing/sending mail in-browser — not built, and explicitly out of scope for now: an
+order of magnitude larger than the admin dashboard (IMAP sync, MIME parsing, XSS-safe HTML
+rendering of arbitrary email content, attachments, compose/send, search). A future project in
+its own right rather than an extension of the current dashboard.
 
 ## Mandatory release signing (minisign)
 Currently `install.sh` verifies a SHA-256 checksum of the release tarball, which protects
@@ -61,8 +70,10 @@ actually take effect.
 
 ## MTA-STS policy hosting
 The installer prints the `_mta-sts` DNS TXT record but doesn't stand up the HTTPS-hosted policy
-file it requires. A minimal Nginx vhost serving `/.well-known/mta-sts.txt` (reusing the web
-server that PostfixAdmin/Roundcube would also need) would close this gap.
+file it requires. Since there's no longer a general-purpose web server in this stack (the admin
+dashboard is a purpose-built Go binary, not Nginx), closing this would mean either a minimal
+static file route added to `patrabahokd` itself, or a small standalone listener — a decision to
+make when this is actually tackled, not a given.
 
 ## VM-based integration test matrix
 Real mail delivery testing needs real listening ports and believable DNS in a way containers

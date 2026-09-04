@@ -4,8 +4,8 @@ A production-oriented, self-hosted mail server installer for Ubuntu 24.04/22.04 
 Debian 12. One command
 sets up Postfix, Dovecot, MariaDB (virtual multi-domain mailboxes), Rspamd + ClamAV (spam
 scoring, DKIM signing/verification, DMARC, antivirus), Let's Encrypt TLS, ufw + fail2ban, and
-a local recursive resolver — plus a `patrabahok` CLI and a local `patrabahokd` API for day-2
-domain/mailbox management.
+a local recursive resolver — plus a `patrabahok` CLI, a local `patrabahokd` API, and a custom
+admin web dashboard for day-2 domain/mailbox management.
 
 ```
 curl -sSL https://patrabahok.com/install.sh | sh -s -- --yes
@@ -27,6 +27,9 @@ for exactly what the bootstrap does and how it verifies what it downloads.
 - ufw (default-deny) + fail2ban (sshd, postfix, dovecot jails, progressive ban times)
 - `patrabahok` CLI + `patrabahokd` local API (Unix socket, token-scoped): `domain`, `mailbox`,
   `alias`, `dkim`, `dns`, `queue`, `status`
+- A custom admin web dashboard at `https://<hostname>:8443/` — server-rendered Go, no Node
+  build step, no CDN dependency, its own login system (argon2id + sessions), reusing the mail
+  server's own TLS certificate
 
 ## Requirements
 
@@ -51,21 +54,22 @@ non-interactive/scripted install, and how to add more domains and mailboxes afte
 - [docs/INSTALL.md](docs/INSTALL.md) — full install walkthrough and options
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design and component choices
 - [docs/CLI.md](docs/CLI.md) — `patrabahok` command reference
+- [docs/WEB-UI.md](docs/WEB-UI.md) — the admin dashboard: access, first login, security model
 - [docs/SECURITY.md](docs/SECURITY.md) — threat model and the curl\|sh trust model
 - [docs/DNS-RECORDS.md](docs/DNS-RECORDS.md) — every DNS record explained
 - [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md) — backup and disaster recovery
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common failure signatures
-- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (PostfixAdmin, Roundcube,
-  a prebuilt/checksummed CLI release binary, mandatory release signing, VM-based CI)
+- [docs/ROADMAP.md](docs/ROADMAP.md) — what's not built yet (webmail, a prebuilt/checksummed
+  CLI release binary, mandatory release signing, VM-based CI)
 
 ## Status
 
 This is an early release, but not an untested one. It's built to be genuinely
 production-usable for a single-server, single-to-multi-domain mail setup — Ubuntu 24.04,
 Ubuntu 22.04, and Debian 12 have each had a full clean install live-tested end to end
-(services, the `patrabahokd` API, and a real send→milter→LMTP→Maildir delivery test), and
-Ubuntu 24.04 additionally verified with a real Gmail delivery (SPF/DKIM/DMARC all passing).
-Review
+(services, the `patrabahokd` API, the admin dashboard's login/CRUD/fail2ban integration, and a
+real send→milter→LMTP→Maildir delivery test), and Ubuntu 24.04 additionally verified with a
+real Gmail delivery (SPF/DKIM/DMARC all passing). Review
 [docs/ROADMAP.md](docs/ROADMAP.md) for everything else intentionally out of scope so far.
 
 ## License

@@ -56,11 +56,13 @@ phase_run() {
   systemctl restart rspamd
 
   local tries2=0
-  until [ -S /run/rspamd/rspamd-milter.sock ]; do
+  until (exec 3<>/dev/tcp/127.0.0.1/11332) 2>/dev/null; do
+    exec 3>&- 3<&- 2>/dev/null || true
     tries2=$((tries2 + 1))
-    [ "$tries2" -gt 30 ] && die "Rspamd milter socket did not appear at /run/rspamd/rspamd-milter.sock — check 'journalctl -u rspamd'."
+    [ "$tries2" -gt 30 ] && die "Rspamd milter (127.0.0.1:11332) did not come up in time — check 'journalctl -u rspamd'."
     sleep 1
   done
+  exec 3>&- 3<&- 2>/dev/null || true
 
   systemctl restart postfix 2>/dev/null || true
 

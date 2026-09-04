@@ -43,14 +43,16 @@ files themselves (which are also permission-restricted — e.g. Postfix's SQL ma
 
 ## Network exposure
 
-- ufw defaults to deny-incoming; only SSH, 25/587/465/993, and 80/443 (for ACME HTTP-01) are
-  opened.
-- The Rspamd milter socket, the Postfix↔Dovecot LMTP/auth sockets, and the `patrabahokd` API
-  socket are all local Unix sockets under `/run` and `/var/spool/postfix/private`, not exposed
-  on any network interface. `patrabahokd` only listens on TCP if explicitly told to
-  (`-tcp 127.0.0.1:8991`) — off by default, and that flag is meant for `127.0.0.1` only; nothing
-  in the installer opens a firewall port for it, and it should never be bound to a public
-  interface.
+- ufw defaults to deny-incoming; only SSH, 25/587/465/993, 80/443 (ACME HTTP-01), and 8443 (the
+  admin web dashboard — see [WEB-UI.md](WEB-UI.md)) are opened.
+- The Postfix↔Dovecot LMTP/auth sockets and the `patrabahokd` API socket are local Unix sockets
+  under `/var/spool/postfix/private` and `/run/patrabahok`, not exposed on any network
+  interface. The Rspamd milter is the one exception: it binds TCP on `127.0.0.1:11332`
+  (see `docs/ARCHITECTURE.md` for why — a real, reproducible Unix-socket connection bug on
+  one target OS) — still loopback-only, not opened in the firewall, not reachable off-box.
+  `patrabahokd` only listens on TCP if explicitly told to (`-tcp 127.0.0.1:8991`) — off by
+  default, and that flag is meant for `127.0.0.1` only; nothing in the installer opens a
+  firewall port for it, and it should never be bound to a public interface.
 - Dovecot only listens on IMAPS (993) — no plaintext IMAP/POP3 is exposed.
 - fail2ban bans repeated auth failures against SSH, Postfix (SASL), and Dovecot, with
   progressively increasing ban times.

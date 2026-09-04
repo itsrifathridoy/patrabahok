@@ -3,6 +3,13 @@ set -euo pipefail
 PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 # shellcheck source=../core/log.sh
 . "$PATRABAHOK_HOME/lib/core/log.sh"
+# shellcheck source=../core/state.sh
+. "$PATRABAHOK_HOME/lib/core/state.sh"
+# shellcheck source=../core/secrets.sh
+. "$PATRABAHOK_HOME/lib/core/secrets.sh"
+# shellcheck source=../core/template.sh
+. "$PATRABAHOK_HOME/lib/core/template.sh"
+state_init
 
 # Pinned upstream Go toolchain — deliberately NOT the distro's own golang-go package,
 # whose version varies wildly and is often far too old (seen: Go 1.18 on Ubuntu 22.04,
@@ -51,14 +58,14 @@ build_go_binaries() {
   (
     cd "$src"
     if [ -f go.sum ]; then
-      log_info "Building patrabahok CLI/API (pinned dependencies via go.sum)..."
+      log_info "Building patrabahok CLI/API/dashboard (pinned dependencies via go.sum)..."
     else
       log_warn "No go.sum present — resolving dependencies from the network (not pinned). This should not happen in a released tarball; see docs/ROADMAP.md."
       go mod tidy
     fi
     go build -o /usr/local/bin/patrabahok ./cmd/patrabahok
     go build -o /usr/local/bin/patrabahokd ./cmd/patrabahokd
-  ) || die "Failed to build the Go CLI/API. See output above."
+  ) || die "Failed to build the Go CLI/API/dashboard. See output above."
 
   chmod 0755 /usr/local/bin/patrabahok /usr/local/bin/patrabahokd
 }
@@ -68,6 +75,27 @@ cleanup_go() {
   rm -rf "$GO_TOOLCHAIN_DIR"
 }
 
+ensure_initial_webadmin() {
+  local db_name count
+  db_name="$(state_get db_name)"
+  [ -n "$db_name" ] || return 0
+
+  count="$(mysql -u root "$db_name" -N -B -e 'SELECT COUNT(*) FROM admin_users;' 2>/dev/null || echo 0)"
+  [ "${count:-0}" -gt 0 ] && return 0
+
+  local username="admin" password
+  password="$(gen_secret)"
+  if /usr/local/bin/patrabahok webadmin add "$username" --password "$password" >/dev/null 2>&1; then
+    log_ok "Created the initial dashboard admin account — this is shown once only:"
+    log_ok "  URL:      https://$(state_get hostname):8443/"
+    log_ok "  Username: ${username}"
+    log_ok "  Password: ${password}"
+    log_warn "Save this password now. Change it after logging in (Settings), or add more accounts with: patrabahok webadmin add <username>"
+  else
+    log_warn "Could not create the initial dashboard admin account automatically — run 'patrabahok webadmin add <username>' manually."
+  fi
+}
+
 phase_run() {
   ensure_go
   build_go_binaries
@@ -75,7 +103,15 @@ phase_run() {
 
   getent group patrabahok >/dev/null 2>&1 || groupadd -r patrabahok
 
-  install -m 0644 "$PATRABAHOK_HOME/templates/systemd/patrabahokd.service" /etc/systemd/system/patrabahokd.service
+  local tls_cert_dir
+  tls_cert_dir="$(state_get tls_cert_dir)"
+  [ -n "$tls_cert_dir" ] && [ -f "${tls_cert_dir}/fullchain.pem" ] \
+    || die "No TLS certificate found in state (expected phase 40-tls to have set this) — cannot configure the admin dashboard's HTTPS listener."
+
+  render_template "$PATRABAHOK_HOME/templates/systemd/patrabahokd.service.tmpl" /etc/systemd/system/patrabahokd.service \
+    "TLS_CERT=${tls_cert_dir}/fullchain.pem" "TLS_KEY=${tls_cert_dir}/privkey.pem"
+  ufw allow 8443/tcp comment 'patrabahok-dashboard' >/dev/null 2>&1 || true
+
   systemctl daemon-reload
   systemctl enable --now patrabahokd
 
@@ -86,7 +122,9 @@ phase_run() {
     sleep 1
   done
 
-  log_ok "Installed patrabahok CLI (/usr/local/bin/patrabahok) and patrabahokd API (unix:///run/patrabahok/api.sock)"
+  ensure_initial_webadmin
+
+  log_ok "Installed patrabahok CLI, patrabahokd API (unix:///run/patrabahok/api.sock), and admin dashboard (https://<hostname>:8443/)"
   return 0
 }
 

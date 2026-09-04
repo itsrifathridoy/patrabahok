@@ -1,11 +1,11 @@
 [Unit]
-Description=patrabahok local management API
+Description=patrabahok local management API and admin web dashboard
 After=network.target mariadb.service
 Requires=mariadb.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/patrabahokd
+ExecStart=/usr/local/bin/patrabahokd -web-addr :8443 -web-cert {{TLS_CERT}} -web-key {{TLS_KEY}}
 Restart=on-failure
 RestartSec=2
 RuntimeDirectory=patrabahok

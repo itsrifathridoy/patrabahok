@@ -1,0 +1,73 @@
+{{define "content"}}
+<h1>Mailboxes</h1>
+<p class="subtitle">Email accounts across all your domains.</p>
+
+<div class="card">
+  <h2>Add a mailbox</h2>
+  {{if not .Domains}}
+  <p class="text-muted">Add a domain first before creating mailboxes.</p>
+  {{else}}
+  <form hx-post="/mailboxes" hx-target="#mailboxes-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="form-row">
+      <div class="field">
+        <label for="local">Address</label>
+        <input type="text" id="local" name="local" placeholder="you" required>
+      </div>
+      <div class="field">
+        <label for="domain">Domain</label>
+        <select id="domain" name="domain" required>
+          {{range .Domains}}<option value="{{.Name}}">{{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
+      </div>
+      <div class="field">
+        <label for="quota">Quota</label>
+        <input type="text" id="quota" name="quota" value="1G" placeholder="1G">
+      </div>
+      <button type="submit" class="btn btn-primary">Add mailbox</button>
+    </div>
+  </form>
+  {{end}}
+</div>
+
+<div class="card">
+  {{template "mailboxes_table" .}}
+</div>
+{{end}}
+
+{{define "mailboxes_table"}}
+<div id="mailboxes-table">
+  {{if .Mailboxes}}
+  <table>
+    <thead><tr><th>Email</th><th>Quota</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {{range .Mailboxes}}
+      <tr x-data="{ resetting: false }">
+        <td class="mono">{{.Email}}</td>
+        <td>{{.QuotaHuman}}</td>
+        <td>{{if .Enabled}}<span class="badge badge-success">enabled</span>{{else}}<span class="badge badge-muted">disabled</span>{{end}}</td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm" @click="resetting = !resetting">Reset password</button>
+          <button class="btn btn-sm btn-danger"
+            hx-delete="/mailboxes/{{.Email}}"
+            hx-target="#mailboxes-table" hx-swap="outerHTML"
+            hx-confirm="Delete mailbox {{.Email}} and its mail data?">Delete</button>
+          <div x-show="resetting" style="margin-top:8px;">
+            <form hx-put="/mailboxes/{{.Email}}/password" hx-target="#mailboxes-table" hx-swap="outerHTML" style="display:flex;gap:6px;">
+              <input type="password" name="password" placeholder="New password" required minlength="8">
+              <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty">No mailboxes yet.</div>
+  {{end}}
+</div>
+{{end}}

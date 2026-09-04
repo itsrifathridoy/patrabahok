@@ -1,0 +1,31 @@
+{{define "login"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — patrabahok</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="brand">patrabahok</div>
+      <p class="subtitle">Sign in to manage your mail server.</p>
+      {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
+      <form method="post" action="/login">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Sign in</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+{{end}}

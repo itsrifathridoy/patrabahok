@@ -120,3 +120,15 @@ beyond localhost. See [SECURITY.md](SECURITY.md) for the reasoning.
 Each token has one or more scopes (comma-separated), or `*` for all: `domain`, `mailbox`,
 `alias`, `dkim`, `dns`, `queue`, `status`. A scope covers both reading and writing that resource
 in v1 — finer read/write splitting is a possible future refinement, not implemented yet.
+
+## Web dashboard admins
+
+```
+patrabahok webadmin add <username> [--password PASS]
+patrabahok webadmin list
+patrabahok webadmin remove <username>
+```
+
+Manages accounts for the browser dashboard at `https://<hostname>:8443/` — a separate account
+system from API tokens (these are real username/password logins, argon2id-hashed). The first
+account is created automatically during install; see [WEB-UI.md](WEB-UI.md).

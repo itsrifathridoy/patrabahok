@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/itsrifathridoy/patrabahok/cli/internal/adminauth"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/db"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
@@ -60,6 +61,10 @@ Usage:
   patrabahok api token create <name> [--scope domain,mailbox,...]
   patrabahok api token list
   patrabahok api token revoke <name>
+
+  patrabahok webadmin add <username> [--password PASS]
+  patrabahok webadmin list
+  patrabahok webadmin remove <username>
 `)
 }
 
@@ -86,6 +91,7 @@ func run(args []string) error {
 	defer conn.Close()
 	store := mailbox.NewStore(conn)
 	tokens := authtoken.NewStore(conn)
+	webAdmins := adminauth.NewStore(conn)
 	ctx := context.Background()
 
 	group, rest := args[0], args[1:]
@@ -106,6 +112,8 @@ func run(args []string) error {
 		return cmdStatus()
 	case "api":
 		return cmdAPI(ctx, tokens, rest)
+	case "webadmin":
+		return cmdWebAdmin(ctx, webAdmins, rest)
 	case "-h", "--help":
 		usage()
 		return nil
@@ -478,5 +486,64 @@ func cmdAPI(ctx context.Context, tokens *authtoken.Store, args []string) error {
 		return nil
 	default:
 		return fmt.Errorf("unknown api token action: %s", action)
+	}
+}
+
+func cmdWebAdmin(ctx context.Context, admins *adminauth.Store, args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: patrabahok webadmin <add|list|remove> ...")
+	}
+	action, rest := args[0], args[1:]
+	switch action {
+	case "add":
+		var password string
+		positional := parseFlags(rest, map[string]*string{"--password": &password}, nil)
+		username, err := arg(positional, 0, "username")
+		if err != nil {
+			return err
+		}
+		if password == "" {
+			p1, err := readPassword(fmt.Sprintf("Password for dashboard user %s: ", username))
+			if err != nil {
+				return err
+			}
+			p2, err := readPassword("Confirm password: ")
+			if err != nil {
+				return err
+			}
+			if p1 != p2 {
+				return errors.New("passwords did not match")
+			}
+			password = p1
+		}
+		if len(password) < 8 {
+			return errors.New("password must be at least 8 characters")
+		}
+		if err := admins.CreateUser(ctx, username, password); err != nil {
+			return err
+		}
+		ok("Dashboard admin created: %s", username)
+		return nil
+	case "list":
+		list, err := admins.ListUsers(ctx)
+		if err != nil {
+			return err
+		}
+		for _, u := range list {
+			fmt.Println(u.Username)
+		}
+		return nil
+	case "remove":
+		username, err := arg(rest, 0, "username")
+		if err != nil {
+			return err
+		}
+		if err := admins.DeleteUser(ctx, username); err != nil {
+			return err
+		}
+		ok("Dashboard admin removed: %s", username)
+		return nil
+	default:
+		return fmt.Errorf("unknown webadmin action: %s", action)
 	}
 }

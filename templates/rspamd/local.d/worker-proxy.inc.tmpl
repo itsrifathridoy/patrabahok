@@ -1,5 +1,11 @@
 milter = yes;
-bind_socket = "/run/rspamd/rspamd-milter.sock mode=0666";
+# TCP loopback, not a unix socket: real-world testing hit a reproducible case (Ubuntu
+# 22.04) where Postfix's milter connect() failed with ENOENT against a unix socket that
+# demonstrably existed with correct permissions — survived a socket-path change, a
+# directory-permission fix, and a full clean Postfix restart. Switching to TCP loopback
+# resolved it immediately and has been reliable since. Root cause not fully identified;
+# TCP sidesteps the entire class of filesystem/chroot/permission ambiguity involved.
+bind_socket = "127.0.0.1:11332";
 timeout = 30s;
 
 upstream "local" {

@@ -20,6 +20,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `002_api_tokens.sql`). Live-tested (every CLI command, and the API over its real
   socket) on all three supported OSes.
 
+- Admin web dashboard: a custom server-rendered UI (Go `html/template` + htmx + Alpine.js,
+  vendored/embedded, no Node/npm/CDN) served by `patrabahokd` over HTTPS on `:8443`, reusing
+  the mail server's own Let's Encrypt certificate (auto-reloaded on renewal). Domains,
+  mailboxes, aliases, DKIM/DNS records, mail queue, and dashboard-admin management — built
+  instead of installing PostfixAdmin. Own login system separate from API tokens
+  (`admin_users`/`admin_sessions`, schema migration `003_admin_web.sql`): argon2id password
+  hashing, `HttpOnly`/`Secure`/`SameSite=Strict` sessions, a dedicated fail2ban jail for
+  failed logins, username-enumeration-resistant timing. New `patrabahok webadmin
+  add/list/remove` CLI commands; the installer creates one admin account automatically and
+  prints its password once. See `docs/WEB-UI.md`. Live-tested end to end (login incl. wrong
+  password, the fail2ban filter matching a real failed attempt, every page, mailbox
+  create/delete cross-checked against the CLI, password change, session revocation on
+  logout) on all three supported OSes.
+
 ### Fixed
 - `lib/core/migrate.sh`: a new schema migration (like `002_api_tokens.sql` above) never
   reached an already-installed server on upgrade, because phase 30-database is marked
@@ -32,6 +46,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The distro's own `golang-go` package is often far too old (Go 1.18 on Ubuntu 22.04) for
   this module's Go 1.22 requirement — this is what the pinned-toolchain download above
   actually fixes, not just a nice-to-have.
+- DKIM signing was silently not happening for some domains: Rspamd's `use_esld` default
+  (`true`) signs using the effective second-level domain, so a domain like
+  `u22.example.com` looked for `example.com`'s key. Since patrabahok generates one key per
+  exact configured domain string with no such assumption, `use_esld` is now `false`.
+- Rspamd's milter connection intermittently/reproducibly failed with ENOENT on a Unix
+  socket that demonstrably existed with correct permissions (seen on Ubuntu 22.04, survived
+  a socket-path change, a directory-permission fix, and a full clean Postfix restart — see
+  `docs/ARCHITECTURE.md`). Switched the milter transport to TCP loopback
+  (`127.0.0.1:11332`), which resolved it immediately.
 
 ## [0.1.0] - 2026-09-04
 

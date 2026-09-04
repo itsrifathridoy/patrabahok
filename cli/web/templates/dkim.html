@@ -1,0 +1,30 @@
+{{define "content"}}
+<h1>DKIM &amp; DNS</h1>
+<p class="subtitle">The DNS records each domain needs for mail to be trusted (SPF, DKIM, DMARC).</p>
+
+{{if not .Domains}}
+<div class="card"><p class="text-muted">Add a domain first.</p></div>
+{{else}}
+<div class="card">
+  <form method="get" action="/dkim">
+    <div class="form-row">
+      <div class="field">
+        <label for="domain">Domain</label>
+        <select id="domain" name="domain" onchange="this.form.submit()">
+          {{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Selected}}selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>DNS records for {{.Selected}}</h2>
+  {{if .Records}}
+  <pre class="dns-record">{{.Records}}</pre>
+  {{else}}
+  <div class="empty">No records generated yet for this domain.</div>
+  {{end}}
+</div>
+{{end}}
+{{end}}

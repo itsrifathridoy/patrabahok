@@ -4,3 +4,10 @@ allow_username_mismatch = true;
 sign_authenticated = true;
 sign_local = true;
 use_domain = "header";
+# Rspamd's default (use_esld = true) signs using the effective *second-level* domain,
+# e.g. a message from "sales.example.com" would look for example.com's key. We generate
+# and store one key per exact domain string a user adds (patrabahok domain add), with no
+# assumption that subdomains share a parent's key — so key lookup must match that exactly,
+# not Rspamd's ESLD-collapsed default. Confirmed with a real cross-server test: mail from
+# a subdomain-style domain silently failed to sign until this was set.
+use_esld = false;
