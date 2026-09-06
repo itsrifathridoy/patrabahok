@@ -98,6 +98,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Cloudflare API, and disconnect, on all three supported OSes.
 
 ### Fixed
+- The DKIM TXT record shown for manual copy-paste, in `patrabahok dkim show`/`dns show`, and in
+  the dashboard's raw records dump always carried `rspamadm dkim_keygen`'s own two-quoted-segment
+  zone-file split (`"v=DKIM1; k=rsa;" "p=..."`) regardless of whether the combined value was
+  anywhere near the DNS wire format's actual 255-byte-per-segment limit (it isn't, for today's
+  1024-bit RSA key) — a user copy-pasting that raw two-part, line-broken text verbatim into a
+  generic DNS provider's single "Value" field would publish something other than the intended
+  record. Both the installer (phase 80) and `mailbox.Store.DomainAdd` now collapse the value into
+  the minimum number of quoted segments the wire format actually requires — one, for the current
+  key size — self-healing an already-generated record file the next time it's touched, no
+  migration needed. (The per-record dashboard copy button and Cloudflare auto-configure were
+  never affected — they already built the clean, dequoted value separately and correctly; this
+  only affects the raw zone-file-style text.) Live-tested: idempotent on repeat runs, a
+  synthetic value forced over 255 bytes still splits into correctly-sized multiple segments, and
+  live DNS verification against the real record continues to report a matching key afterward.
 - `lib/core/migrate.sh`: a new schema migration (like `002_api_tokens.sql` above) never
   reached an already-installed server on upgrade, because phase 30-database is marked
   done and gets skipped on re-run. Pending migrations now apply unconditionally on every

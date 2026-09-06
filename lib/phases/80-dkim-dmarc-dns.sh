@@ -63,6 +63,51 @@ normalize_dkim_record_name() {
   sed -i "1s/^${SELECTOR}\._domainkey\b/${SELECTOR}._domainkey.${domain}/" "$record_path"
 }
 
+# normalize_dkim_record_quoting RECORD_PATH — rspamadm dkim_keygen always splits the TXT
+# value into two quoted zone-file segments ("v=DKIM1; k=rsa;" and "p=...") regardless of
+# whether the combined value is anywhere near the DNS wire format's real 255-byte-per-
+# segment limit (RFC 1035 §3.3). For today's 1024-bit RSA key the whole value is well
+# under 255 bytes, so this collapses it to a single quoted segment — confirmed via a live
+# `dig` query to match exactly what Cloudflare's API already stores on the wire, and what
+# a DNS provider's single "Value" field expects when copy-pasted by hand, rather than the
+# two-segment zone-file text (quotes, embedded line break, and all) a user would
+# otherwise paste verbatim into a field that wants one continuous string. Stays correct
+# automatically if a larger key ever needs genuinely more than one 255-byte segment: this
+# only ever produces the minimum segment count the wire format actually requires. Runs
+# every time (not just after a fresh generation), so an already-generated file gets
+# self-healed the next time it's touched, same as normalize_dkim_record_name.
+normalize_dkim_record_quoting() {
+  local record_path="$1"
+  [ -f "$record_path" ] || return 0
+  local quote_count
+  quote_count=$(grep -o '"' "$record_path" | wc -l)
+  [ "$quote_count" -le 2 ] && return 0
+
+  local joined prefix value
+  joined="$(tr -d '\n\t' < "$record_path")"
+  prefix="$(awk -F'"' '{print $1}' <<<"$joined")"
+  local suffix
+  suffix="$(awk -F'"' '{print $NF}' <<<"$joined")"
+  # Even-numbered awk -F'"' fields are the text INSIDE quote pairs (odd fields are outside
+  # them, e.g. the whitespace rspamadm leaves between its two segments) — concatenating
+  # only the even fields reconstructs the value with nothing extra inserted.
+  value="$(awk -F'"' '{v=""; for (i=2; i<NF; i+=2) v = v $i; print v}' <<<"$joined")"
+  [ -n "$value" ] || return 0
+
+  local chunks="" remaining="$value" chunk
+  while [ -n "$remaining" ]; do
+    chunk="${remaining:0:255}"
+    remaining="${remaining:255}"
+    if [ -z "$chunks" ]; then
+      chunks="\"${chunk}\""
+    else
+      chunks="${chunks} \"${chunk}\""
+    fi
+  done
+
+  printf '%s%s%s\n' "$prefix" "$chunks" "$suffix" > "$record_path"
+}
+
 # generate_dkim_key DOMAIN — idempotent: generates a key+DNS-record pair only if one
 # doesn't already exist for this domain/selector.
 generate_dkim_key() {
@@ -73,6 +118,7 @@ generate_dkim_key() {
   if [ -f "$key_path" ]; then
     log_info "DKIM key for ${domain} already exists, reusing it."
     normalize_dkim_record_name "$domain"
+    normalize_dkim_record_quoting "$record_path"
     return 0
   fi
 
@@ -82,6 +128,7 @@ generate_dkim_key() {
   chmod 640 "$key_path"
   chmod 644 "$record_path"
   normalize_dkim_record_name "$domain"
+  normalize_dkim_record_quoting "$record_path"
 }
 
 write_dns_records_file() {

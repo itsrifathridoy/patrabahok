@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/itsrifathridoy/patrabahok/cli/internal/dnscheck"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
@@ -46,6 +47,9 @@ func ensureDKIMAndDNSRecords(domain string) error {
 	// a repeat `domain add`), without needing a separate migration step.
 	if err := normalizeDKIMRecordName(recordPath, domain); err != nil {
 		return fmt.Errorf("normalize DKIM record name: %w", err)
+	}
+	if err := normalizeDKIMRecordQuoting(recordPath); err != nil {
+		return fmt.Errorf("normalize DKIM record quoting: %w", err)
 	}
 
 	if mailHost := mailHostFromConfig(); mailHost != "" {
@@ -88,6 +92,60 @@ func normalizeDKIMRecordName(recordPath, domain string) error {
 	}
 	text = qualified + text[len(bare):]
 	return os.WriteFile(recordPath, []byte(text), 0o644)
+}
+
+// dkimCharStringMax is the DNS wire-format limit for a single TXT <character-string>
+// (RFC 1035 §3.3: a length-prefixed byte, so 255 is the hard ceiling) — not a stylistic
+// choice.
+const dkimCharStringMax = 255
+
+// normalizeDKIMRecordQuoting rewrites the DKIM record file's TXT value into as few
+// 255-byte-max quoted segments as the DNS wire format actually requires, instead of
+// keeping whatever fixed split `rspamadm dkim_keygen` happened to use in its zone-file
+// output (always two segments, "v=DKIM1; k=rsa;" and "p=...", regardless of whether the
+// combined value is anywhere near the 255-byte limit). For a 1024-bit RSA key the whole
+// value is under 255 bytes, so this collapses it to one quoted segment — confirmed via a
+// live `dig` query to match exactly what Cloudflare's API already stores on the wire,
+// and what a DNS provider's single "Value" field expects when copy-pasted by hand,
+// rather than the two-segment zone-file text a user would otherwise paste verbatim
+// (quotes, embedded line break, and all) into a field that wants one continuous string.
+// Stays correct automatically if a larger key ever needs genuinely more than one
+// 255-byte segment — this only ever produces the minimum segment count required.
+// Runs every time (not just after a fresh generation), so an already-generated record
+// file gets self-healed the next time it's touched, same as normalizeDKIMRecordName.
+func normalizeDKIMRecordQuoting(recordPath string) error {
+	data, err := os.ReadFile(recordPath)
+	if err != nil {
+		return err
+	}
+	text := string(data)
+	if strings.Count(text, `"`) <= 2 {
+		return nil // already a single quoted segment (or an unrecognized format — leave it alone)
+	}
+	firstQuote := strings.IndexByte(text, '"')
+	lastQuote := strings.LastIndexByte(text, '"')
+	if firstQuote == -1 || lastQuote == firstQuote {
+		return nil // no complete quoted segment found — leave it alone rather than guess
+	}
+	prefix := text[:firstQuote]
+	suffix := text[lastQuote+1:]
+	value := dnscheck.FullDKIMRecordValue(text)
+	if value == "" {
+		return nil
+	}
+
+	var chunks []string
+	for len(value) > 0 {
+		n := dkimCharStringMax
+		if n > len(value) {
+			n = len(value)
+		}
+		chunks = append(chunks, `"`+value[:n]+`"`)
+		value = value[n:]
+	}
+
+	newText := prefix + strings.Join(chunks, " ") + suffix
+	return os.WriteFile(recordPath, []byte(newText), 0o644)
 }
 
 func rspamdOwner() (user, group string) {
