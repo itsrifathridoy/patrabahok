@@ -53,6 +53,7 @@ Usage:
   patrabahok alias remove <alias@domain> <target@domain>
 
   patrabahok dkim show <domain>
+  patrabahok dkim rotate <domain>    # generates a new 2048-bit key; republish its DNS record after
   patrabahok dns show <domain>
   patrabahok mta-sts enable <domain>
 
@@ -400,8 +401,15 @@ func cmdAlias(ctx context.Context, store *mailbox.Store, args []string) error {
 }
 
 func cmdDKIM(args []string) error {
-	if len(args) < 2 || args[0] != "show" {
-		return errors.New("usage: patrabahok dkim show <domain>")
+	if len(args) < 2 || (args[0] != "show" && args[0] != "rotate") {
+		return errors.New("usage: patrabahok dkim show <domain> | patrabahok dkim rotate <domain>")
+	}
+	if args[0] == "rotate" {
+		if err := mailbox.RotateDKIMKey(args[1]); err != nil {
+			return err
+		}
+		ok("DKIM key rotated for %s — republish its DNS TXT record now (dashboard DNS Analysis, Cloudflare auto-configure, or 'patrabahok dkim show %s')", args[1], args[1])
+		return nil
 	}
 	rec, err := sysinfo.DKIMRecord(args[1])
 	if err != nil {

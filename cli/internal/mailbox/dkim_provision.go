@@ -12,6 +12,12 @@ import (
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
 
+// dkimKeyBits: RFC 8301 recommends 2048-bit RSA for DKIM; rspamadm dkim_keygen's own
+// default without -b is 1024-bit, which is weak by current standards (and increasingly
+// flagged/rejected by major mailbox providers) — always pass this explicitly rather than
+// rely on it. Mirrors lib/phases/80-dkim-dmarc-dns.sh's DKIM_KEY_BITS.
+const dkimKeyBits = "2048"
+
 // ensureDKIMAndDNSRecords generates a DKIM keypair for domain (if one doesn't already
 // exist) and (re)writes the DNS records dump file that feeds it, mirroring what the
 // installer's 80-dkim-dmarc-dns phase does for the domain(s) known at install time.
@@ -27,7 +33,7 @@ func ensureDKIMAndDNSRecords(domain string) error {
 	recordPath := filepath.Join(sysinfo.DKIMDir, domain+"."+sysinfo.Selector+".txt")
 
 	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-		out, err := exec.Command("rspamadm", "dkim_keygen", "-s", sysinfo.Selector, "-d", domain, "-k", keyPath).Output()
+		out, err := exec.Command("rspamadm", "dkim_keygen", "-s", sysinfo.Selector, "-d", domain, "-b", dkimKeyBits, "-k", keyPath).Output()
 		if err != nil {
 			return fmt.Errorf("rspamadm dkim_keygen: %w", err)
 		}
@@ -59,6 +65,38 @@ func ensureDKIMAndDNSRecords(domain string) error {
 	}
 
 	return writeDNSRecordsFile(domain, recordPath)
+}
+
+// RotateDKIMKey deletes domain's current DKIM key/record files and regenerates them at
+// the current dkimKeyBits size — the actual, usable way to move an already-provisioned
+// domain onto a new key size (ensureDKIMAndDNSRecords deliberately never overwrites an
+// existing key file on its own, since silently rotating keys on every routine
+// `domain add` would be dangerous). Restarts rspamd afterward: unlike a brand-new
+// domain's key (which rspamd's dkim_signing module reads lazily and has never seen
+// before), it's not guaranteed rspamd won't keep signing with an already-loaded key
+// object for one it has — a restart forces it to read fresh from disk either way.
+//
+// The DNS side is NOT automatic: the old public key stays published (and outgoing mail
+// keeps verifying against the old key, since callers must republish the new DKIM DNS
+// record themselves — e.g. via Cloudflare auto-configure — as this changes which value
+// buildRecordEntries/dnscheck compare against.
+func RotateDKIMKey(domain string) error {
+	if err := ValidateDomain(domain); err != nil {
+		return err
+	}
+	keyPath := filepath.Join(sysinfo.DKIMDir, domain+"."+sysinfo.Selector+".key")
+	recordPath := filepath.Join(sysinfo.DKIMDir, domain+"."+sysinfo.Selector+".txt")
+	if err := os.Remove(keyPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove existing key %s: %w", keyPath, err)
+	}
+	if err := os.Remove(recordPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove existing record %s: %w", recordPath, err)
+	}
+	if err := ensureDKIMAndDNSRecords(domain); err != nil {
+		return err
+	}
+	_ = exec.Command("systemctl", "restart", "rspamd").Run()
+	return nil
 }
 
 func mailHostFromConfig() string {

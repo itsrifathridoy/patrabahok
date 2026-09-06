@@ -51,6 +51,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /v1/aliases", s.requireScope("alias", s.handleAliasRemove))
 
 	s.mux.HandleFunc("GET /v1/dkim/{domain}", s.requireScope("dkim", s.handleDKIM))
+	s.mux.HandleFunc("POST /v1/dkim/{domain}/rotate", s.requireScope("dkim", s.handleDKIMRotate))
 	s.mux.HandleFunc("GET /v1/dns/{domain}", s.requireScope("dns", s.handleDNS))
 	s.mux.HandleFunc("POST /v1/mta-sts/{domain}/enable", s.requireScope("dns", s.handleMTASTSEnable))
 
@@ -228,6 +229,20 @@ func (s *Server) handleDKIM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"record": rec})
+}
+
+func (s *Server) handleDKIMRotate(w http.ResponseWriter, r *http.Request) {
+	domain := r.PathValue("domain")
+	if err := mailbox.RotateDKIMKey(domain); err != nil {
+		writeError(w, statusForErr(err), err.Error())
+		return
+	}
+	rec, err := sysinfo.DKIMRecord(domain)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"domain": domain, "record": rec})
 }
 
 func (s *Server) handleDNS(w http.ResponseWriter, r *http.Request) {

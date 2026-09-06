@@ -97,6 +97,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `dash.cloudflare.com/oauth2/auth` endpoint), manual token verification against the real
   Cloudflare API, and disconnect, on all three supported OSes.
 
+### Added
+- `patrabahok dkim rotate <domain>` (also `POST /v1/dkim/{domain}/rotate` and a dashboard button)
+  regenerates a domain's DKIM key. Found while fixing the TXT-quoting bug below: DKIM keys were
+  being generated at 1024-bit RSA (`rspamadm dkim_keygen`'s own default without an explicit `-b`),
+  weak by current standards (RFC 8301 recommends 2048-bit) despite docs/DNS-RECORDS.md already
+  (incorrectly) claiming 2048-bit. New key generation — both the installer and
+  `mailbox.Store.DomainAdd` — now explicitly requests 2048-bit, and `dkim rotate` is the actual
+  way to move an already-provisioned domain onto the new size, since key generation deliberately
+  never overwrites an existing key on its own. Restarts Rspamd to sign with the new key
+  immediately; deliberately does not touch DNS itself (the admin must republish, since outgoing
+  mail fails DKIM verification at receivers until the new public key is published) — the dashboard
+  button re-renders the DKIM record shown for copy/Cloudflare auto-configure in the same response
+  so the new value is visible right away. Live-tested end to end against a real domain: rotating
+  correctly produces a new key different from the old one, `gofmt`/`go vet` clean, a full
+  Cloudflare auto-configure republish afterward, and live DNS verification confirming the newly
+  published key matches — repeated via all three interfaces (CLI, dashboard, JSON API, including
+  401/403 checks for missing/wrong-scope tokens).
+
 ### Fixed
 - The DKIM TXT record shown for manual copy-paste, in `patrabahok dkim show`/`dns show`, and in
   the dashboard's raw records dump always carried `rspamadm dkim_keygen`'s own two-quoted-segment

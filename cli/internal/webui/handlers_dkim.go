@@ -30,6 +30,9 @@ type DKIMPageData struct {
 	MTASTSEnabled   bool
 	MTASTSResultMsg string
 	MTASTSErr       string
+
+	DKIMRotateMsg string
+	DKIMRotateErr string
 }
 
 // DNSRecordEntry is one DNS record a domain needs, broken out individually (rather than
@@ -213,6 +216,38 @@ func (s *Server) handleDKIMCloudflareApply(w http.ResponseWriter, r *http.Reques
 	}
 	data.CloudflareApplyResults = results
 	renderPartial(w, "dkim", "dns_analysis", data)
+}
+
+// handleDKIMRotate generates a new DKIM key for the domain and re-renders the "Records to
+// add" section so the new value is immediately visible to copy or push via Cloudflare —
+// the DNS side is deliberately not touched automatically (see mailbox.RotateDKIMKey), so
+// the admin still needs to republish it, but at least sees the new value right away
+// instead of having to reload the page or guess it changed.
+func (s *Server) handleDKIMRotate(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	if domain == "" {
+		http.Error(w, "domain is required", http.StatusBadRequest)
+		return
+	}
+
+	err := mailbox.RotateDKIMKey(domain)
+
+	data, dataErr := s.dkimData(r, false)
+	if dataErr != nil {
+		http.Error(w, dataErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err != nil {
+		data.DKIMRotateErr = err.Error()
+	} else {
+		data.DKIMRotateMsg = "DKIM key rotated — this server now signs with the new key, but DNS still publishes the old public key. Republish the DKIM record below (manually, or via Cloudflare auto-configure) now, or outgoing mail will fail DKIM verification until you do."
+	}
+	// The rotate button's hx-target is #dns-analysis, but rotation also changes the
+	// DKIM value shown in the separate "Records to add" card above — an out-of-band
+	// swap keeps that in sync too, in one response, instead of leaving it stale until
+	// a full page reload.
+	renderPartial(w, "dkim", "dns_analysis", data)
+	renderPartial(w, "dkim", "records_to_add_oob", data)
 }
 
 // handleDKIMMTASTSEnable issues (or renews) the mta-sts.<domain> certificate and writes

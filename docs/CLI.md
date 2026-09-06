@@ -55,9 +55,16 @@ patrabahok alias remove <alias@domain> <target@domain>
 
 ```
 patrabahok dkim show <domain>     # prints the DKIM DNS TXT record
+patrabahok dkim rotate <domain>   # generates a new 2048-bit RSA key; republish its DNS record after
 patrabahok dns show <domain>      # prints the full record set (MX/SPF/DKIM/DMARC/MTA-STS)
 patrabahok mta-sts enable <domain>
 ```
+
+DKIM keys are 2048-bit RSA, generated once per domain and never rotated automatically.
+`dkim rotate` regenerates a domain's key and restarts Rspamd to sign with it immediately — but
+does **not** touch DNS, since it can't know how you publish records. Outgoing mail will fail DKIM
+verification until you republish the new value it prints (dashboard DNS Analysis page, Cloudflare
+auto-configure, or manually) — do this right after rotating, not on your own schedule.
 
 `mta-sts enable` turns on real MTA-STS policy hosting for a domain: it first checks that
 `mta-sts.<domain>` actually resolves to this server (failing with a specific message if not — add

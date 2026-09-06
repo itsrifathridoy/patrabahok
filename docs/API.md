@@ -293,6 +293,20 @@ GET /v1/dkim/example.com
 {"record": "mail._domainkey.example.com. IN TXT \"v=DKIM1; k=rsa; p=MIGfMA0...\""}
 ```
 
+### `POST /v1/dkim/{domain}/rotate` — scope: `dkim`
+
+Generates a new 2048-bit RSA DKIM key for the domain and restarts Rspamd to sign with it
+immediately. Does **not** touch DNS — the response includes the new record text so you can
+republish it yourself (or via a Cloudflare auto-configure call), but until you do, outgoing mail
+signed with the new key will fail DKIM verification at receivers still seeing the old public key.
+
+```http
+POST /v1/dkim/example.com/rotate
+
+200 OK
+{"domain": "example.com", "record": "mail._domainkey.example.com IN TXT ( \"v=DKIM1; k=rsa; p=MIIBIj...\" \"...\" )"}
+```
+
 ### `GET /v1/dns/{domain}` — scope: `dns`
 
 Returns the full record set dump (MX/SPF/DKIM/DMARC/MTA-STS) as one text blob, not split into

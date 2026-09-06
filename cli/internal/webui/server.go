@@ -73,6 +73,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /dkim/verify", s.requireAuth(s.handleDKIMVerify))
 	s.mux.HandleFunc("POST /dkim/cloudflare-apply", s.requireAuth(s.handleDKIMCloudflareApply))
 	s.mux.HandleFunc("POST /dkim/mta-sts-enable", s.requireAuth(s.handleDKIMMTASTSEnable))
+	s.mux.HandleFunc("POST /dkim/rotate", s.requireAuth(s.handleDKIMRotate))
 
 	s.mux.HandleFunc("GET /queue", s.requireAuth(s.handleQueuePage))
 	s.mux.HandleFunc("GET /queue/partial", s.requireAuth(s.handleQueuePartial))

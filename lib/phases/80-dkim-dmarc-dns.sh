@@ -14,6 +14,10 @@ RSPAMD_USER="$(state_get rspamd_user)"
 RSPAMD_GROUP="$(state_get rspamd_group)"
 [ -n "$RSPAMD_GROUP" ] || RSPAMD_GROUP="$(id -gn "$RSPAMD_USER" 2>/dev/null || printf '%s' "$RSPAMD_USER")"
 SELECTOR="mail"
+# RFC 8301 recommends 2048-bit RSA for DKIM; rspamadm dkim_keygen's own default without
+# -b is 1024-bit, which is weak by current standards (and increasingly flagged/rejected
+# by major mailbox providers) — always pass this explicitly rather than rely on it.
+DKIM_KEY_BITS=2048
 DKIM_DIR="/var/lib/rspamd/dkim"
 # Not /root: patrabahokd's systemd sandbox (ProtectHome=read-only) can't write there,
 # and domains added later (CLI/API/dashboard) need to regenerate this file too — see
@@ -122,8 +126,8 @@ generate_dkim_key() {
     return 0
   fi
 
-  log_info "Generating DKIM key for ${domain} (selector: ${SELECTOR})..."
-  rspamadm dkim_keygen -s "$SELECTOR" -d "$domain" -k "$key_path" > "$record_path"
+  log_info "Generating DKIM key for ${domain} (selector: ${SELECTOR}, ${DKIM_KEY_BITS}-bit RSA)..."
+  rspamadm dkim_keygen -s "$SELECTOR" -d "$domain" -b "$DKIM_KEY_BITS" -k "$key_path" > "$record_path"
   chown "${RSPAMD_USER}:${RSPAMD_GROUP}" "$key_path"
   chmod 640 "$key_path"
   chmod 644 "$record_path"
