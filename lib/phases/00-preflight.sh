@@ -47,10 +47,70 @@ check_dns_record() {
   return 1
 }
 
+# ensure_swap: a stock 4GB VPS running the full stack (Postfix, Dovecot, MariaDB, Rspamd,
+# ClamAV, Redis, unbound) with zero swap is one memory spike away from the kernel OOM-
+# killing whichever process it picks — not necessarily a disposable one. Confirmed for
+# real, not hypothetical: ClamAV's signature database load plus a scan spike OOM-killed
+# clamav-daemon in exactly this configuration during testing (958MB peak RSS, no swap to
+# absorb it, `dmesg`/`systemctl status` showing Result: oom-kill). A swapfile is cheap
+# (disk space only) and turns that failure mode into slower-but-surviving instead of a
+# dead service. Respects any swap the operator already configured — never adds a second
+# one — and uses a conservative low swappiness so it's an emergency buffer, not routine
+# paging that would mask a genuinely undersized server.
+ensure_swap() {
+  if swapon --show --noheadings 2>/dev/null | grep -q .; then
+    log_info "Swap already configured, leaving it as-is."
+    return 0
+  fi
+  if grep -qE '^\s*[^#].*\sswap\s' /etc/fstab 2>/dev/null; then
+    log_info "A swap entry already exists in /etc/fstab (just not active) — leaving it alone rather than adding a second one."
+    return 0
+  fi
+
+  local mem_mb swap_mb
+  mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+  if [ "$mem_mb" -le 2048 ]; then
+    swap_mb=$mem_mb
+  elif [ "$mem_mb" -le 8192 ]; then
+    swap_mb=2048
+  else
+    swap_mb=4096
+  fi
+
+  local avail_mb
+  avail_mb=$(df -Pm / | awk 'NR==2 {print $4}')
+  if [ "$avail_mb" -lt $((swap_mb + 1024)) ]; then
+    log_warn "Not enough free disk space to safely add a ${swap_mb}MB swapfile (only ${avail_mb}MB free on /) — skipping. A single memory spike could still get a service OOM-killed; consider adding swap manually once space allows."
+    return 0
+  fi
+
+  log_info "No swap configured — adding a ${swap_mb}MB swapfile (RAM: ${mem_mb}MB) so a memory spike degrades performance instead of getting a service OOM-killed..."
+  if ! fallocate -l "${swap_mb}M" /swapfile 2>/dev/null; then
+    dd if=/dev/zero of=/swapfile bs=1M count="$swap_mb" status=none \
+      || { log_warn "Could not create /swapfile — continuing without swap."; rm -f /swapfile; return 0; }
+  fi
+  chmod 600 /swapfile
+  mkswap /swapfile >/dev/null \
+    || { log_warn "mkswap failed on /swapfile — continuing without swap."; rm -f /swapfile; return 0; }
+  swapon /swapfile \
+    || { log_warn "swapon failed for /swapfile — continuing without swap."; rm -f /swapfile; return 0; }
+
+  grep -qF '/swapfile' /etc/fstab 2>/dev/null || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+  # Emergency buffer, not routine paging — a mail server's working set should fit in RAM
+  # under normal conditions; low swappiness keeps swap for spikes, not everyday use.
+  echo 'vm.swappiness=10' > /etc/sysctl.d/99-patrabahok-swap.conf
+  sysctl -q vm.swappiness=10 2>/dev/null || true
+
+  log_ok "Swap enabled: ${swap_mb}MB at /swapfile (persists across reboots via /etc/fstab)."
+}
+
 phase_run() {
   echo
   log_info "patrabahok installer — mail server setup"
   echo
+
+  ensure_swap
 
   ask DOMAIN "Primary mail domain (e.g. example.com)" ""
   is_valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"

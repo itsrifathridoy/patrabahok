@@ -98,6 +98,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Cloudflare API, and disconnect, on all three supported OSes.
 
 ### Added
+- Automatic swap provisioning (`00-preflight.sh`): a stock small VPS running the full stack
+  (Postfix, Dovecot, MariaDB, Rspamd, ClamAV, Redis, unbound) with no swap is one memory spike
+  away from the kernel OOM-killing whichever process it picks. Found for real, not
+  hypothetically: `clamav-daemon` was OOM-killed in exactly this configuration on a 4GB test
+  server (958MB peak RSS, zero swap). The installer now adds a swapfile sized by a standard
+  RAM-based table (equal to RAM up to 2GB, 2GB up to 8GB RAM, 4GB above that) with low
+  `vm.swappiness=10` — an emergency buffer, not routine paging — unless swap is already configured
+  (respects an existing setup either active or just in `/etc/fstab`) or there isn't enough free
+  disk space, in which case it warns instead of failing the install. Live-tested: applied to the
+  affected server, `clamav-daemon` restarted and stayed active under the same real memory
+  pressure that killed it before (`systemctl status` showing part of its footprint genuinely
+  swapped out instead of OOM-killed), and a full `patrabahok-installer verify` pass afterward
+  showed every service active for the first time since that server's install.
 - `patrabahok dkim rotate <domain>` (also `POST /v1/dkim/{domain}/rotate` and a dashboard button)
   regenerates a domain's DKIM key. Found while fixing the TXT-quoting bug below: DKIM keys were
   being generated at 1024-bit RSA (`rspamadm dkim_keygen`'s own default without an explicit `-b`),
