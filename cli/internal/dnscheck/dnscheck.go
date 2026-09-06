@@ -32,6 +32,11 @@ func timeoutCtx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 8*time.Second)
 }
 
+// CheckA is checkA, exported for callers outside this package that need a one-off A
+// record check without going through the full Analyze report — e.g. confirming
+// mta-sts.<domain> resolves to this server before attempting to enable MTA-STS hosting.
+func CheckA(host, expectedIP string) Check { return checkA(host, expectedIP) }
+
 func checkA(host, expectedIP string) Check {
 	ctx, cancel := timeoutCtx()
 	defer cancel()

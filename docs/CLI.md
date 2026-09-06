@@ -56,7 +56,17 @@ patrabahok alias remove <alias@domain> <target@domain>
 ```
 patrabahok dkim show <domain>     # prints the DKIM DNS TXT record
 patrabahok dns show <domain>      # prints the full record set (MX/SPF/DKIM/DMARC/MTA-STS)
+patrabahok mta-sts enable <domain>
 ```
+
+`mta-sts enable` turns on real MTA-STS policy hosting for a domain: it first checks that
+`mta-sts.<domain>` actually resolves to this server (failing with a specific message if not — add
+that A record and wait for it to propagate before retrying), then issues a Let's Encrypt
+certificate for that hostname (via `certbot certonly --standalone`, same mechanism as the mail
+hostname's own certificate) and writes the policy file `patrabahokd` serves at
+`https://mta-sts.<domain>/.well-known/mta-sts.txt` on port 443. Safe to run repeatedly — a
+still-valid certificate is reused without a network call. Once enabled, certbot's existing renewal
+timer covers this certificate automatically, same as every other one it manages.
 
 ## Mail queue
 

@@ -59,16 +59,21 @@ _dmarc.example.com.   IN  TXT   "v=DMARC1; p=quarantine; rua=mailto:you@example.
 and eventually `p=reject` once you're confident. Never start at `p=reject` — a misconfiguration
 at that point silently drops your own mail at receiving servers.
 
-## MTA-STS (TXT, optional — not fully set up by this installer)
+## MTA-STS (TXT + A, optional)
 
 ```
-_mta-sts.example.com.   IN  TXT   "v=STSv1; id=<timestamp>"
+mta-sts.example.com.    IN  A     <this server's IP>
+_mta-sts.example.com.   IN  TXT   "v=STSv1; id=<hash>"
 ```
 
-This record alone does nothing without also hosting a policy file at
-`https://mta-sts.example.com/.well-known/mta-sts.txt` over valid TLS. The installer prints the
-record for convenience but does **not** set up that hosting — see [ROADMAP.md](ROADMAP.md).
-Skip this unless you're prepared to host the policy file yourself.
+The TXT record alone does nothing without also hosting a policy file at
+`https://mta-sts.example.com/.well-known/mta-sts.txt` over valid TLS — add both records above,
+wait for them to propagate, then run `patrabahok mta-sts enable example.com` (or use the
+dashboard's DNS Analysis page). That command verifies the A record actually resolves to this
+server, issues a Let's Encrypt certificate for `mta-sts.example.com`, and writes the policy file
+`patrabahokd` serves on port 443 for that hostname — the `id` value above is a hash of that file's
+content, so it only changes if the policy itself does. See [CLI.md](CLI.md) and
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Checking propagation
 

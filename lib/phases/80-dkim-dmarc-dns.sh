@@ -19,6 +19,35 @@ DKIM_DIR="/var/lib/rspamd/dkim"
 # and domains added later (CLI/API/dashboard) need to regenerate this file too — see
 # cli/internal/mailbox/dkim_provision.go, which writes here as well.
 DNS_DUMP_DIR="/var/lib/patrabahok/dns-records"
+# Mirrors cli/internal/mtasts.PolicyDir — patrabahokd's MTA-STS listener serves whatever
+# policy file it finds here.
+MTA_STS_DIR="/var/lib/patrabahok/mta-sts"
+
+# mta_sts_policy_content MAIL_HOSTNAME — must match mtasts.PolicyContent exactly (Go),
+# since the printed DNS TXT record's "id" is a hash of this text and both sides need to
+# agree on it.
+mta_sts_policy_content() {
+  printf 'version: STSv1\nmode: testing\nmx: %s\nmax_age: 604800\n' "$1"
+}
+
+# mta_sts_policy_id CONTENT — must match cli/internal/mtasts.PolicyID exactly: first 16
+# hex chars of the content's SHA-256, so the DNS record only needs to change when the
+# policy actually does.
+mta_sts_policy_id() {
+  printf '%s' "$1" | sha256sum | cut -c1-16
+}
+
+# write_mta_sts_policy DOMAIN MAIL_HOSTNAME — writes the (not-yet-hosted) policy file so
+# it's ready the moment 'patrabahok mta-sts enable' issues a certificate for it; mirrors
+# cli/internal/mtasts.WritePolicy.
+write_mta_sts_policy() {
+  local domain="$1" mail_hostname="$2"
+  local dir="${MTA_STS_DIR}/${domain}"
+  mkdir -p "$dir"
+  chmod 755 "$dir"
+  mta_sts_policy_content "$mail_hostname" > "${dir}/mta-sts.txt"
+  chmod 644 "${dir}/mta-sts.txt"
+}
 
 # normalize_dkim_record_name DOMAIN — rspamadm dkim_keygen emits a bare, zone-file-
 # relative name ("mail._domainkey"), only meaningful inside a zone file that already has
@@ -85,9 +114,15 @@ write_dns_records_file() {
     echo "-- DMARC (TXT) — start at p=none, monitor, then move to quarantine/reject --"
     echo "_dmarc.${domain}.   IN  TXT    \"v=DMARC1; p=none; rua=mailto:${admin_email}\""
     echo
-    echo "-- MTA-STS (TXT) — optional, requires you to host a policy file yourself; --"
-    echo "-- this installer does not set up that hosting (see docs/ROADMAP.md).     --"
-    echo "_mta-sts.${domain}.   IN  TXT    \"v=STSv1; id=$(date -u +%Y%m%d%H%M%S)\""
+    echo "-- MTA-STS (TXT + A, optional) — add both records, then run --"
+    echo "-- 'patrabahok mta-sts enable ${domain}' (or use the dashboard's DNS --"
+    echo "-- Analysis page) to actually issue the certificate and start hosting --"
+    echo "-- the policy file this record points at.                             --"
+    echo "mta-sts.${domain}.   IN  A      ${server_ip}"
+    local sts_content sts_id
+    sts_content="$(mta_sts_policy_content "$mail_hostname")"
+    sts_id="$(mta_sts_policy_id "$sts_content")"
+    echo "_mta-sts.${domain}.   IN  TXT    \"v=STSv1; id=${sts_id}\""
     echo
   } > "$out"
   chmod 600 "$out"
@@ -108,6 +143,7 @@ phase_run() {
     [ -z "$admin_email" ] && admin_email="postmaster@${domain}"
 
     generate_dkim_key "$domain"
+    write_mta_sts_policy "$domain" "$mail_hostname"
     out_file="$(write_dns_records_file "$domain" "$mail_hostname" "$server_ip" "$admin_email")"
 
     echo

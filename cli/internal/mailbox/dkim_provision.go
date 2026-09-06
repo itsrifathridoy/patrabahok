@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
 
@@ -48,7 +48,21 @@ func ensureDKIMAndDNSRecords(domain string) error {
 		return fmt.Errorf("normalize DKIM record name: %w", err)
 	}
 
+	if mailHost := mailHostFromConfig(); mailHost != "" {
+		if _, _, err := mtasts.WritePolicy(domain, mailHost); err != nil {
+			return fmt.Errorf("write MTA-STS policy: %w", err)
+		}
+	}
+
 	return writeDNSRecordsFile(domain, recordPath)
+}
+
+func mailHostFromConfig() string {
+	cfg := installerConfig()
+	if v, ok := cfg["hostname"].(string); ok {
+		return v
+	}
+	return ""
 }
 
 // normalizeDKIMRecordName rewrites the DKIM record file so it starts with the fully
@@ -137,9 +151,13 @@ func writeDNSRecordsFile(domain, dkimRecordPath string) error {
 	b.WriteString(dkimText)
 	b.WriteString("\n-- DMARC (TXT) — start at p=none, monitor, then move to quarantine/reject --\n")
 	fmt.Fprintf(&b, "_dmarc.%s.   IN  TXT    \"v=DMARC1; p=none; rua=mailto:%s\"\n\n", domain, adminEmail)
-	b.WriteString("-- MTA-STS (TXT) — optional, requires you to host a policy file yourself; --\n")
-	b.WriteString("-- this installer does not set up that hosting (see docs/ROADMAP.md).     --\n")
-	fmt.Fprintf(&b, "_mta-sts.%s.   IN  TXT    \"v=STSv1; id=%s\"\n\n", domain, time.Now().UTC().Format("20060102150405"))
+	b.WriteString("-- MTA-STS (TXT + A, optional) — add both records, then run --\n")
+	b.WriteString("-- 'patrabahok mta-sts enable " + domain + "' (or use the dashboard's DNS --\n")
+	b.WriteString("-- Analysis page) to actually issue the certificate and start hosting --\n")
+	b.WriteString("-- the policy file this record points at.                             --\n")
+	fmt.Fprintf(&b, "%s.   IN  A      %s\n", mtasts.Hostname(domain), serverIP)
+	stsContent := mtasts.PolicyContent(mailHost)
+	fmt.Fprintf(&b, "_mta-sts.%s.   IN  TXT    \"v=STSv1; id=%s\"\n\n", domain, mtasts.PolicyID(stsContent))
 
 	if err := os.MkdirAll(sysinfo.DNSDumpDir, 0o700); err != nil {
 		return fmt.Errorf("create %s: %w", sysinfo.DNSDumpDir, err)

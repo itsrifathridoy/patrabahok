@@ -91,6 +91,19 @@
 
 <div class="card">
   <div class="toolbar">
+    <h2 class="mt-0 mb-0">MTA-STS hosting</h2>
+  </div>
+  <p class="text-muted" style="margin-top:0;">
+    Publishing the <code>_mta-sts</code> TXT record above only matters once
+    <code class="mono">https://{{.MTASTSHostname}}/.well-known/mta-sts.txt</code> is actually reachable.
+    Add the <strong>MTA-STS A record</strong> above (or Auto-configure via Cloudflare), wait for it to resolve,
+    then enable hosting here — this issues the certificate and starts serving the policy file.
+  </p>
+  <div id="mta-sts-status">{{template "mta_sts_status" .}}</div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
     <h2 class="mt-0 mb-0">Live verification</h2>
     <button class="btn btn-primary" hx-get="/dkim/verify?domain={{.Selected}}" hx-target="#dns-analysis" hx-swap="outerHTML" hx-indicator="#verify-spinner">
       Verify DNS now
@@ -160,4 +173,23 @@
   <div class="empty">Click "Verify DNS now" to check this domain's live DNS records.</div>
   {{end}}
 </div>
+{{end}}
+
+{{define "mta_sts_status"}}
+{{if .MTASTSErr}}
+<div class="flash flash-error">{{.MTASTSErr}}</div>
+{{end}}
+{{if .MTASTSResultMsg}}
+<div class="flash flash-success">{{.MTASTSResultMsg}}</div>
+{{end}}
+{{if .MTASTSEnabled}}
+<div class="flash flash-success" style="margin-top:0;">
+  Hosting active — <a href="https://{{.MTASTSHostname}}/.well-known/mta-sts.txt" target="_blank" rel="noopener">https://{{.MTASTSHostname}}/.well-known/mta-sts.txt</a>
+</div>
+{{else}}
+<button class="btn btn-primary" hx-post="/dkim/mta-sts-enable?domain={{.Selected}}" hx-target="#mta-sts-status" hx-swap="innerHTML" hx-indicator="#mta-sts-spinner">
+  Enable MTA-STS hosting
+</button>
+<span id="mta-sts-spinner" class="htmx-indicator text-muted" style="margin-left:8px;">Requesting certificate…</span>
+{{end}}
 {{end}}

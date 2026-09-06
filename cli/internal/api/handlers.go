@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
 
@@ -50,6 +52,7 @@ func (s *Server) routes() {
 
 	s.mux.HandleFunc("GET /v1/dkim/{domain}", s.requireScope("dkim", s.handleDKIM))
 	s.mux.HandleFunc("GET /v1/dns/{domain}", s.requireScope("dns", s.handleDNS))
+	s.mux.HandleFunc("POST /v1/mta-sts/{domain}/enable", s.requireScope("dns", s.handleMTASTSEnable))
 
 	s.mux.HandleFunc("GET /v1/queue", s.requireScope("queue", s.handleQueueList))
 	s.mux.HandleFunc("POST /v1/queue/flush", s.requireScope("queue", s.handleQueueFlush))
@@ -234,6 +237,22 @@ func (s *Server) handleDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"records": rec})
+}
+
+func (s *Server) handleMTASTSEnable(w http.ResponseWriter, r *http.Request) {
+	// mtasts.Enable can legitimately run well past the server's normal 15s
+	// ReadTimeout/WriteTimeout (DNS-readiness retries plus a real certbot run) — extend
+	// this one connection's write deadline rather than raising the server-wide timeout
+	// that protects every other, fast, endpoint.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(150 * time.Second))
+
+	domain := r.PathValue("domain")
+	id, err := mtasts.Enable(r.Context(), domain)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"domain": domain, "policy_id": id})
 }
 
 func (s *Server) handleQueueList(w http.ResponseWriter, r *http.Request) {

@@ -19,6 +19,7 @@ import (
 	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/db"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
 
@@ -53,6 +54,7 @@ Usage:
 
   patrabahok dkim show <domain>
   patrabahok dns show <domain>
+  patrabahok mta-sts enable <domain>
 
   patrabahok queue list
   patrabahok queue flush
@@ -107,6 +109,8 @@ func run(args []string) error {
 		return cmdDKIM(rest)
 	case "dns":
 		return cmdDNS(rest)
+	case "mta-sts":
+		return cmdMTASTS(ctx, rest)
 	case "queue":
 		return cmdQueue(rest)
 	case "status":
@@ -416,6 +420,19 @@ func cmdDNS(args []string) error {
 		return err
 	}
 	fmt.Print(rec)
+	return nil
+}
+
+func cmdMTASTS(ctx context.Context, args []string) error {
+	if len(args) < 2 || args[0] != "enable" {
+		return errors.New("usage: patrabahok mta-sts enable <domain>")
+	}
+	domain := args[1]
+	id, err := mtasts.Enable(ctx, domain)
+	if err != nil {
+		return err
+	}
+	ok("MTA-STS hosting enabled for %s (policy id %s) — https://%s/.well-known/mta-sts.txt", domain, id, mtasts.Hostname(domain))
 	return nil
 }
 

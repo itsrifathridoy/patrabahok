@@ -306,6 +306,34 @@ GET /v1/dns/example.com
 {"records": "; DNS records for example.com\nMX  10 mail.example.com.\n..."}
 ```
 
+## MTA-STS
+
+### `POST /v1/mta-sts/{domain}/enable` — scope: `dns`
+
+Turns on real MTA-STS policy hosting for domain: verifies `mta-sts.<domain>` resolves to this
+server, issues a Let's Encrypt certificate for it, and writes the policy file `patrabahokd` serves
+at `https://mta-sts.<domain>/.well-known/mta-sts.txt`. See [CLI.md](CLI.md#dkim--dns) for the
+underlying mechanism. This one can take a while (DNS-readiness retries plus a real certbot run) —
+both this endpoint and the equivalent dashboard action extend their connection's write deadline
+well past the API's normal 15-second one rather than risk a slow-but-successful run getting cut
+off mid-response.
+
+```http
+POST /v1/mta-sts/example.com/enable
+
+200 OK
+{"domain": "example.com", "policy_id": "63d1721a7e8fb8c3"}
+```
+
+If `mta-sts.example.com` doesn't resolve to this server yet:
+
+```http
+POST /v1/mta-sts/example.com/enable
+
+400 Bad Request
+{"error": "mta-sts.example.com does not resolve yet — add an A record for it pointing to 203.0.113.10, wait for it to propagate, then try again"}
+```
+
 ## Mail queue
 
 ### `GET /v1/queue` — scope: `queue`

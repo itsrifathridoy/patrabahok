@@ -108,12 +108,50 @@ its quota is correctly rejected at LMTP (`552 5.2.2 Quota exceeded`, Postfix bou
 the sender), and raising the quota via the CLI immediately allows delivery to succeed on retry —
 confirmed through all three interfaces (CLI, dashboard, JSON API).
 
-## MTA-STS policy hosting
-The installer prints the `_mta-sts` DNS TXT record but doesn't stand up the HTTPS-hosted policy
-file it requires. Since there's no longer a general-purpose web server in this stack (the admin
-dashboard is a purpose-built Go binary, not Nginx), closing this would mean either a minimal
-static file route added to `patrabahokd` itself, or a small standalone listener — a decision to
-make when this is actually tackled, not a given.
+## Done: MTA-STS policy hosting, live-verified
+Closed as a minimal static-file route added to `patrabahokd` itself (a new `-mtasts-addr :443`
+listener, `cli/internal/mtasts`), not a separate general-purpose web server — consistent with how
+the admin dashboard was built. Certificates are picked per-connection by SNI (one
+`mta-sts.<domain>` certificate per domain, all sharing the one `:443` listener), so enabling a new
+domain or renewing an existing certificate never needs a restart.
+
+`patrabahok mta-sts enable <domain>` (also a dashboard button on the DNS Analysis page, and
+`POST /v1/mta-sts/{domain}/enable`) does the actual work: confirms `mta-sts.<domain>` resolves to
+this server first (so a DNS problem surfaces as a specific, actionable message instead of a
+generic ACME failure), then issues the certificate via `certbot certonly --standalone` — the same
+mechanism `40-tls.sh` already uses for the mail hostname's own certificate — and writes the policy
+file (`mode: testing`, the same conservative starting point this project already uses for DMARC's
+`p=none`). The printed `_mta-sts` TXT record's `id` is a hash of the policy content, so it only
+changes when the policy actually does, not on every unrelated regeneration (an earlier,
+never-shipped version of this used a timestamp, which would have busted every sender's cache on
+every domain re-provision for no reason). Cloudflare auto-configure creates the new `mta-sts` A
+record and `_mta-sts` TXT record too, so a connected account needs no manual DNS step at all.
+
+Two real bugs found and fixed during live testing, both applicable beyond just this feature:
+- The DNS-readiness check occasionally reported a live, correctly-configured record as "does not
+  resolve yet" — a transient resolver hiccup (a dropped query, a slow parallel AAAA lookup that
+  never got a reply at all), not an actual problem with the record; a plain `dig` run right
+  alongside a failing attempt always succeeded. Now retries a few times before giving up.
+- `mta-sts enable` can legitimately run past the API/dashboard servers' normal 15-second
+  request-write timeout (DNS retries plus a real certbot run) — both handlers now extend just
+  their own connection's write deadline instead of raising the server-wide timeout that protects
+  every other, fast, endpoint.
+
+Live-tested against a real domain end-to-end: Cloudflare auto-configure creating the new A/TXT
+records via the real Cloudflare API, DNS propagation confirmed independently via `dig`, a real
+Let's Encrypt certificate issued for `mta-sts.<domain>` (tracked by `certbot certificates`
+alongside the mail hostname's own, so the existing renewal timer covers it automatically), the
+policy file fetched from a separate machine over the public internet with a fully valid
+certificate chain (no `-k`/insecure flag needed), a wrong path and wrong host both correctly
+returning a bare 404, and three repeated `enable` calls back to back all succeeding quickly
+(`--keep-until-expiring` skipping re-issuance of the still-valid certificate). `gofmt`/`go vet`
+clean; a full `patrabahok-installer verify` pass afterward showed no regressions.
+
+Separately noticed while testing (not fixed here, unrelated to this feature): on this particular
+test server, `/etc/resolv.conf` is currently pointing at `8.8.8.8`/`8.8.4.4` rather than the local
+`unbound` resolver `50-postfix.sh` configures at install time — something (most likely cloud-init
+or netplan on a later boot) reverted it after install. Worth a follow-up: nothing currently makes
+that file stick.
 
 ## VM-based integration test matrix
 Real mail delivery testing needs real listening ports and believable DNS in a way containers

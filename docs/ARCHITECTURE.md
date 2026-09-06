@@ -80,12 +80,8 @@ unverified remote code itself.
 
 ## Known MVP limitations (see ROADMAP.md)
 
-- No webmail (reading/composing/sending mail in-browser) — the admin dashboard covers
-  domain/mailbox/alias/DKIM/queue management only, not a Roundcube-style inbox UI
+- patrabahok Mail (webmail) is built and live-tested but only deployed by hand on the primary
+  server so far — not yet an installer phase, not yet on the other two OS targets
 - The Go CLI/API/dashboard is live-verified on all three supported OSes, but is built from
   source at install time (pinned/checksummed Go toolchain) rather than distributed as a
   prebuilt, checksummed release binary
-- Per-mailbox quota is collected but not yet enforced dynamically (a single global default
-  quota is enforced via Dovecot's static quota plugin)
-- No MTA-STS policy hosting (the DNS record text is printed, but you must host the policy
-  file yourself if you want it)

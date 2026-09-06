@@ -8,6 +8,7 @@ import (
 	"github.com/itsrifathridoy/patrabahok/cli/internal/cloudflare"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/dnscheck"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
 )
 
@@ -24,6 +25,11 @@ type DKIMPageData struct {
 	CloudflareZone         string
 	CloudflareApplyResults []cloudflare.ApplyResult
 	CloudflareApplyErr     string
+
+	MTASTSHostname  string
+	MTASTSEnabled   bool
+	MTASTSResultMsg string
+	MTASTSErr       string
 }
 
 // DNSRecordEntry is one DNS record a domain needs, broken out individually (rather than
@@ -79,6 +85,8 @@ func (s *Server) dkimData(r *http.Request, runCheck bool) (DKIMPageData, error) 
 
 	data.RawRecords, _ = sysinfo.DNSRecords(selected)
 	data.RecordEntries = buildRecordEntries(selected)
+	data.MTASTSHostname = mtasts.Hostname(selected)
+	data.MTASTSEnabled = mtasts.Enabled(selected)
 
 	if token, err := s.cloudflare.Token(r.Context()); err == nil && token != "" {
 		data.CloudflareConnected = true
@@ -124,6 +132,14 @@ func buildRecordEntries(domain string) []DNSRecordEntry {
 		if value := dnscheck.FullDKIMRecordValue(dkimText); value != "" {
 			entries = append(entries, DNSRecordEntry{Label: "DKIM", Type: "TXT", Name: "mail._domainkey." + domain, Value: value})
 		}
+	}
+
+	if mailHost != "" && serverIP != "" {
+		stsContent := mtasts.PolicyContent(mailHost)
+		entries = append(entries,
+			DNSRecordEntry{Label: "MTA-STS A record", Type: "A", Name: mtasts.Hostname(domain), Value: serverIP},
+			DNSRecordEntry{Label: "MTA-STS", Type: "TXT", Name: "_mta-sts." + domain, Value: "v=STSv1; id=" + mtasts.PolicyID(stsContent)},
+		)
 	}
 	return entries
 }
@@ -197,4 +213,37 @@ func (s *Server) handleDKIMCloudflareApply(w http.ResponseWriter, r *http.Reques
 	}
 	data.CloudflareApplyResults = results
 	renderPartial(w, "dkim", "dns_analysis", data)
+}
+
+// handleDKIMMTASTSEnable issues (or renews) the mta-sts.<domain> certificate and writes
+// its policy file, then re-renders the panel so the admin sees the real resulting state
+// (enabled, or the specific reason it isn't) immediately rather than a bare "submitted".
+func (s *Server) handleDKIMMTASTSEnable(w http.ResponseWriter, r *http.Request) {
+	domain := r.URL.Query().Get("domain")
+	if domain == "" {
+		http.Error(w, "domain is required", http.StatusBadRequest)
+		return
+	}
+
+	// mtasts.Enable can legitimately run well past ServeTLS's normal 15s
+	// ReadTimeout/WriteTimeout (DNS-readiness retries plus a real certbot run) — extend
+	// this one connection's write deadline rather than raising the server-wide timeout
+	// that protects every other, fast, page.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(150 * time.Second))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 140*time.Second)
+	defer cancel()
+	id, err := mtasts.Enable(ctx, domain)
+
+	data, dataErr := s.dkimData(r, false)
+	if dataErr != nil {
+		http.Error(w, dataErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err != nil {
+		data.MTASTSErr = err.Error()
+	} else {
+		data.MTASTSResultMsg = "MTA-STS hosting enabled (policy id " + id + ")."
+	}
+	renderPartial(w, "dkim", "mta_sts_status", data)
 }

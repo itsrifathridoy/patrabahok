@@ -3,6 +3,8 @@ package cloudflare
 import (
 	"context"
 	"strings"
+
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 )
 
 type ApplyResult struct {
@@ -17,13 +19,22 @@ type ApplyResult struct {
 // that already matches is left alone, and nothing outside these specific records is
 // ever touched or deleted — e.g. other unrelated TXT records at the domain apex, or
 // other MX records already pointing elsewhere, are never removed.
+//
+// Includes the MTA-STS A and TXT records (not just the mail-critical ones) so that,
+// with Cloudflare connected, the only step left to actually enable MTA-STS hosting is
+// running 'patrabahok mta-sts enable' (or the dashboard button) once these have
+// propagated — the DNS side is otherwise identical manual work to everything else here.
 func ApplyMailRecords(ctx context.Context, c *Client, zoneID, domain, mailHost, serverIP, dkimValue, dmarcValue string) []ApplyResult {
+	stsContent := mtasts.PolicyContent(mailHost)
+	stsValue := "v=STSv1; id=" + mtasts.PolicyID(stsContent)
 	return []ApplyResult{
 		upsertSingleHost(ctx, c, zoneID, "A record", "A", mailHost, serverIP, 0),
 		upsertMX(ctx, c, zoneID, domain, mailHost),
 		upsertTXTByPrefix(ctx, c, zoneID, "SPF", domain, "v=spf1", "v=spf1 mx -all"),
 		upsertTXTByPrefix(ctx, c, zoneID, "DMARC", "_dmarc."+domain, "v=DMARC1", dmarcValue),
 		upsertTXTByPrefix(ctx, c, zoneID, "DKIM", "mail._domainkey."+domain, "v=DKIM1", dkimValue),
+		upsertSingleHost(ctx, c, zoneID, "MTA-STS A record", "A", mtasts.Hostname(domain), serverIP, 0),
+		upsertTXTByPrefix(ctx, c, zoneID, "MTA-STS TXT", "_mta-sts."+domain, "v=STSv1", stsValue),
 	}
 }
 

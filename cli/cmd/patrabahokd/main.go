@@ -17,6 +17,7 @@ import (
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/api"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/db"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/webui"
 )
 
@@ -27,6 +28,7 @@ func main() {
 	webAddr := flag.String("web-addr", ":8443", "address for the admin web dashboard to listen on")
 	webCert := flag.String("web-cert", "", "TLS certificate (fullchain) for the admin web dashboard; dashboard disabled if empty")
 	webKey := flag.String("web-key", "", "TLS private key for the admin web dashboard")
+	mtastsAddr := flag.String("mtasts-addr", "", "address to serve MTA-STS policy files (/.well-known/mta-sts.txt) on, e.g. :443; disabled if empty")
 	flag.Parse()
 
 	conn, err := db.Open(*dbConfig)
@@ -75,6 +77,18 @@ func main() {
 		}()
 	} else {
 		log.Printf("patrabahokd: admin web dashboard disabled (no -web-cert/-web-key given)")
+	}
+
+	if *mtastsAddr != "" {
+		go func() {
+			// Deliberately non-fatal, unlike the API/dashboard listeners above: MTA-STS
+			// hosting is opt-in per domain and secondary to core mail service, so a
+			// problem binding its port (already open in ufw, but conceivably taken by
+			// something else) shouldn't take down the management API and dashboard with it.
+			if err := mtasts.ListenAndServeTLS(*mtastsAddr); err != nil {
+				log.Printf("patrabahokd: mtasts serve: %v (MTA-STS policy hosting disabled)", err)
+			}
+		}()
 	}
 
 	sig := make(chan os.Signal, 1)

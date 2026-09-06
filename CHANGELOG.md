@@ -4,6 +4,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- MTA-STS policy hosting: `patrabahok mta-sts enable <domain>` (also a dashboard button and
+  `POST /v1/mta-sts/{domain}/enable`) issues a Let's Encrypt certificate for `mta-sts.<domain>`
+  and starts serving its policy file, closing the gap where the installer only ever printed the
+  DNS record. New `patrabahokd -mtasts-addr :443` listener (`cli/internal/mtasts`) picks a
+  certificate per connection by SNI, so multiple domains share one listener with no restart needed
+  to add one. Cloudflare auto-configure now creates the MTA-STS A/TXT records too. Live-tested
+  end to end against a real domain: real Cloudflare-created DNS records, a real issued
+  certificate (tracked by `certbot certificates` for automatic renewal), and the policy file
+  fetched from a separate machine over the public internet with a fully valid certificate chain.
+  Found and fixed two real bugs along the way: the DNS-readiness check could report a live record
+  as not-yet-resolving on a transient resolver hiccup (now retries), and the enable operation
+  could legitimately outrun the API/dashboard servers' 15-second write timeout (now extended
+  per-connection for just this endpoint).
 - Per-mailbox quota enforcement: Dovecot now reads each mailbox's actual `quota_bytes`
   from the database (via `user_query`'s `quota_rule` extra field) instead of one static
   1G limit shared by every mailbox. New `patrabahok mailbox quota <user@domain> <quota>`
