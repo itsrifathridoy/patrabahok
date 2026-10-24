@@ -118,6 +118,9 @@ https://<hostname>/<anything else>                ──▶ reverse proxy to the
   fail2ban bans) can't be spoofed.
 - Nothing listens on `:80`, because certbot's standalone HTTP-01 issuance and renewal need it.
   That's why Roundcube's nginx binds loopback only and the distro's default site is removed.
+- patrabahok Webmail is Roundcube plus this repo's `webmail/roundcube/` skin and plugin, copied
+  into the release on every run of `90-webmail` so upgrades ship UI changes. Dovecot's
+  ManageSieve listens on `127.0.0.1:4190` only, for the filters and vacation-reply settings.
 - Roundcube is a pinned, checksum-verified upstream release (`/opt/roundcube/releases/<version>`,
   `current` symlink) rather than the distro package. The distro package's version differs across
   the three supported OSes, and it pulls in Apache and interactive dbconfig-common prompts.

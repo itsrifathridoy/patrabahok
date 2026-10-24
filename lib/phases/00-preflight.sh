@@ -130,12 +130,13 @@ phase_run() {
 
   echo
   log_info "Webmail client, served at https://${MAIL_HOSTNAME}/:"
-  log_info "  roundcube - Roundcube, the widely used open-source webmail (PHP)"
-  log_info "  custom    - patrabahok Mail, this project's own webmail (Node.js + PostgreSQL)"
-  log_info "  none      - no webmail; users connect with desktop/mobile mail apps only"
-  ask WEBMAIL "Webmail client (roundcube / custom / none)" "roundcube"
+  log_info "  patrabahok - patrabahok Webmail: a modern, redesigned client on the Roundcube engine (recommended)"
+  log_info "  roundcube  - stock Roundcube with its default look"
+  log_info "  custom     - the experimental Next.js client (Node.js + PostgreSQL)"
+  log_info "  none       - no webmail; users connect with desktop/mobile mail apps only"
+  ask WEBMAIL "Webmail client (patrabahok / roundcube / custom / none)" "patrabahok"
   local webmail
-  webmail="$(normalize_webmail_choice "$WEBMAIL")" || die "Invalid webmail choice: $WEBMAIL (expected roundcube, custom, or none)"
+  webmail="$(normalize_webmail_choice "$WEBMAIL")" || die "Invalid webmail choice: $WEBMAIL (expected patrabahok, roundcube, custom, or none)"
 
   ask_finalize
 

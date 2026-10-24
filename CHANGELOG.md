@@ -4,6 +4,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **patrabahok Webmail**, the new default webmail (`webmail/roundcube/`): Roundcube 1.7 with a
+  redesigned skin (navy rail, Plus Jakarta Sans, light and dark themes, split-screen sign-in,
+  card-style composer with recipient chips and a sticky send bar) and a plugin adding undo send
+  (configurable 0–30 s), a Ctrl/Cmd+K command palette, Gmail-style keyboard shortcuts with a `?`
+  cheat sheet, quick filter chips, hover Archive/read/unread actions, initial avatars, an emoji
+  picker, focus mode and a live word count. Filters, vacation replies and forwarding rules work
+  through Dovecot ManageSieve (loopback only, `dovecot-managesieved`), and the archive,
+  markasjunk, zipdownload, newmail_notifier, attachment_reminder, emoticons, hide_blockquote and
+  vcard_attachments plugins are enabled. Existing servers switch with
+  `PATRABAHOK_WEBMAIL=patrabahok patrabahok-installer --force-phase 90-webmail`.
 - Groups (distribution lists), like Google Groups: one address delivers to every member. They
   support member/owner roles, nesting, optional external members, and a posting policy (`anyone`,
   `organization`, `members`, `owners`) enforced at SMTP time by a new Postfix policy service in

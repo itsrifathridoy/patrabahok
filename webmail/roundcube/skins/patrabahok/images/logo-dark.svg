@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="patrabahok">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17a558"/><stop offset="1" stop-color="#0eaf9b"/></linearGradient></defs>
+  <rect width="64" height="64" rx="18" fill="url(#g)"/>
+  <path d="M46.4 17.6 15.8 29.3a1 1 0 0 0 0 1.9l11.4 4.4 4.4 11.4a1 1 0 0 0 1.9 0l11.7-30.6a.6.6 0 0 0-.8-.8z" fill="none" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="m27.2 35.6 8.6-8.6" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,1123 @@
+/**
+ * patrabahok skin: layout and component redesign, compiled after all of Elastic's
+ * styles (see webmail/roundcube/build-skin.sh). Every rule targets Elastic's own
+ * markup, so all Roundcube features keep working and only the presentation changes.
+ * Derivative of Roundcube's Elastic skin; CC BY-SA 3.0 (see ../../README.md).
+ */
+
+@font-face {
+    font-family: "Plus Jakarta Sans";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url("../fonts/plus-jakarta-sans-latin-wght-normal.woff2") format("woff2");
+}
+
+@pb-shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
+@pb-shadow-md: 0 8px 24px -8px rgba(16, 24, 40, .14), 0 2px 6px -2px rgba(16, 24, 40, .06);
+@pb-shadow-lg: 0 24px 48px -12px rgba(16, 24, 40, .25);
+@pb-gradient:  linear-gradient(135deg, @pb-green 0%, @pb-teal 100%);
+
+// Theme tokens. Surfaces, text and lines are CSS variables so every component below
+// follows light/dark mode automatically; brand colors stay LESS (compile-time).
+:root {
+    --pb-surface: #ffffff;
+    --pb-canvas: #f6f8fb;
+    --pb-line: #e4e8f0;
+    --pb-line-soft: var(--pb-line-soft);
+    --pb-ink: #101828;
+    --pb-ink-2: #344054;
+    --pb-muted: #667085;
+    --pb-placeholder: var(--pb-placeholder);
+    --pb-hover: var(--pb-hover);
+    --pb-sidebar-hover: var(--pb-sidebar-hover);
+    --pb-selected: #eef4ff;
+    --pb-quota: var(--pb-quota);
+    --pb-chip-text: var(--pb-chip-text);
+    --pb-editor-bar: #f6f8fb;
+}
+html.dark-mode {
+    --pb-surface: #0f1d36;
+    --pb-canvas: #0b1426;
+    --pb-line: #1e2f4f;
+    --pb-line-soft: #16243f;
+    --pb-ink: #e6edf7;
+    --pb-ink-2: #c3cede;
+    --pb-muted: #8898b3;
+    --pb-placeholder: #5d6f8f;
+    --pb-hover: #12223f;
+    --pb-sidebar-hover: #13223f;
+    --pb-selected: #16284a;
+    --pb-quota: #1e2f4f;
+    --pb-chip-text: #bfdbfe;
+    --pb-editor-bar: #13254a;
+}
+
+// ------------------------------------------------------------------ typography
+html, body, input, select, textarea, button, .btn, .popover, .ui-dialog, .ui-widget,
+.form-control, .custom-select, table, .tox, .tox * {
+    font-family: @pb-font;
+}
+body {
+    font-size: 14px;
+    letter-spacing: -.005em;
+    -webkit-font-smoothing: antialiased;
+    background: var(--pb-canvas);
+}
+h1, h2, h3, .header-title, .subject h2 {
+    letter-spacing: -.015em;
+}
+
+// --------------------------------------------------------------------- the rail
+#layout-menu {
+    background: @pb-navy;
+    border-right: 0;
+
+    .popover-header {
+        padding: 18px 0 10px;
+        background: transparent;
+
+        #logo {
+            max-width: 44px;
+            max-height: 44px;
+            margin: 0 auto;
+            display: block;
+            filter: drop-shadow(0 6px 14px rgba(23, 165, 88, .45));
+        }
+    }
+
+    #taskmenu {
+        padding: 6px 10px;
+
+        a {
+            position: relative;
+            border-radius: @pb-radius;
+            margin: 2px 0;
+            padding: 10px 0 8px;
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: .01em;
+            color: #8393ae;
+            transition: background .15s, color .15s;
+
+            &:before {
+                font-size: 18px;
+                margin-bottom: 4px;
+            }
+            &:hover {
+                color: #fff;
+                background: fade(#fff, 6%);
+            }
+            &.selected {
+                color: #fff;
+                background: fade(@pb-green, 14%);
+
+                &:before {
+                    color: @pb-green;
+                }
+                &:after {
+                    content: "";
+                    position: absolute;
+                    left: -10px;
+                    top: 12px;
+                    bottom: 12px;
+                    width: 3px;
+                    border-radius: 0 3px 3px 0;
+                    background: @pb-green;
+                    box-shadow: 0 0 10px fade(@pb-green, 70%);
+                }
+            }
+        }
+
+        // Compose: the primary action, a gradient tile.
+        .action-buttons a.compose {
+            color: #fff;
+            background: @pb-gradient;
+            box-shadow: 0 10px 22px -10px fade(@pb-green, 90%);
+            margin-bottom: 12px;
+
+            &:before {
+                color: #fff;
+            }
+            &:hover {
+                filter: brightness(1.06);
+                background: @pb-gradient;
+            }
+            &.selected:after {
+                display: none;
+            }
+        }
+
+        .special-buttons a {
+            font-weight: 500;
+
+            &.logout {
+                color: #fda4af;
+
+                &:hover {
+                    background: fade(@pb-red, 18%);
+                    color: #fff;
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------- panel headers
+.listbox > .header,
+#layout-content > .header,
+#layout-sidebar > .header,
+#layout-list > .header {
+    background: var(--pb-surface);
+    border-bottom: 1px solid var(--pb-line);
+    height: @layout-header-height;
+}
+#layout-sidebar > .header {
+    background: var(--pb-canvas);
+}
+.header-title {
+    font-weight: 700;
+    font-size: 15px;
+}
+#layout-sidebar .header .header-title.username {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pb-ink-2);
+}
+
+// header toolbars (Reply, Forward, Delete, ...): soft rounded tool buttons
+.header .toolbar a.button,
+.header .toolbar > a,
+.header .toolbar li > a,
+.toolbar.menu > a,
+#toolbar-menu li a {
+    border-radius: 10px;
+    color: var(--pb-ink-2);
+    font-weight: 500;
+    transition: background .15s, color .15s;
+
+    &:hover:not(.disabled) {
+        background: var(--pb-canvas);
+        color: var(--pb-ink);
+    }
+    &:before {
+        color: var(--pb-muted);
+    }
+    &:hover:not(.disabled):before {
+        color: @pb-blue;
+    }
+}
+
+// ------------------------------------------------------------- folder sidebar
+#layout-sidebar {
+    background: var(--pb-canvas);
+    border-right: 1px solid var(--pb-line);
+}
+.treelist.folderlist,
+#layout-sidebar .treelist,
+#layout-sidebar .listing {
+    padding: 8px 10px;
+    background: transparent;
+
+    li {
+        border: 0;
+        background: transparent;
+
+        a {
+            border-radius: 10px;
+            margin: 1px 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            line-height: 38px;
+            font-weight: 500;
+            color: var(--pb-ink-2);
+
+            &:before {
+                color: var(--pb-muted);
+            }
+        }
+        &:hover > a,
+        > a:hover {
+            background: var(--pb-sidebar-hover);
+        }
+        &.selected > a {
+            background: fade(@pb-blue, 10%);
+            color: @pb-blue;
+            font-weight: 700;
+
+            &:before {
+                color: @pb-blue;
+            }
+        }
+        &.selected > a,
+        &.selected {
+            background-color: transparent;
+        }
+        &.selected > a {
+            background-color: fade(@pb-blue, 10%);
+        }
+    }
+}
+.treelist li.unread > a .unreadcount,
+.listing li .unreadcount,
+.unreadcount {
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 8px;
+    min-width: 22px;
+    background: @pb-blue;
+    color: #fff;
+}
+.treelist li.selected .unreadcount {
+    background: @pb-blue;
+}
+
+// quota
+.quota-widget {
+    padding: 4px 6px;
+
+    .count {
+        border-radius: 999px;
+        height: 6px;
+        background: var(--pb-quota);
+    }
+}
+
+// --------------------------------------------------------------- message list
+#layout-list {
+    background: var(--pb-surface);
+}
+.searchbar {
+    margin: 10px 12px 4px;
+    height: 40px;
+    border-radius: @pb-radius;
+    border: 1px solid var(--pb-line);
+    background: var(--pb-canvas);
+    transition: border-color .15s, box-shadow .15s, background .15s;
+
+    &:focus-within {
+        background: var(--pb-surface);
+        border-color: @pb-blue;
+        box-shadow: 0 0 0 3px fade(@pb-blue, 16%);
+    }
+    input {
+        background: transparent;
+        font-size: 13.5px;
+    }
+}
+
+table.messagelist {
+    tbody tr {
+        transition: background .12s;
+
+        td {
+            border-bottom: 1px solid var(--pb-line-soft);
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+        td.subject {
+            padding-left: 14px;
+        }
+        &:hover td {
+            background-color: var(--pb-hover);
+        }
+        &.selected td,
+        &.selected:hover td {
+            background-color: var(--pb-selected);
+        }
+        &.selected td.subject {
+            box-shadow: inset 3px 0 0 @pb-blue;
+        }
+
+        span.fromto {
+            font-weight: 600;
+            color: var(--pb-ink);
+            font-size: 13.5px;
+        }
+        span.date {
+            font-size: 12px;
+            color: var(--pb-muted);
+        }
+        span.subject a,
+        span.subject {
+            color: var(--pb-ink-2);
+            font-size: 13px;
+        }
+
+        // unread: bold, with a blue dot
+        &.unread {
+            span.fromto,
+            span.subject a {
+                font-weight: 700;
+                color: var(--pb-ink);
+            }
+            span.date {
+                color: @pb-blue;
+                font-weight: 700;
+            }
+        }
+        &.unread span.msgicon.status:before,
+        span.msgicon.status.unread:before {
+            color: @pb-blue;
+        }
+
+        // read messages: no placeholder status dot (replied/forwarded icons stay)
+        span.msgicon.status:not(.replied):not(.forwarded):not(.unread):not(.deleted):before {
+            visibility: hidden;
+        }
+        &.unread span.msgicon.status:before {
+            visibility: visible;
+        }
+        // Elastic's hover box (size + flag + delete) floats over the date; make it a
+        // quiet inline cluster instead and drop the size.
+        span.size {
+            display: none !important;
+        }
+        td.flags,
+        &.focused td.flags,
+        &:hover td.flags {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: 0 !important;
+        }
+
+        // flagged: keep text neutral, the flag icon carries the meaning
+        // (Elastic's dark rules skip flagged rows, so set them explicitly.)
+        &.flagged span.fromto,
+        &.flagged span.subject a {
+            color: var(--pb-ink) !important;
+        }
+        &.flagged td,
+        &.flagged span.date {
+            color: var(--pb-muted) !important;
+        }
+        &.flagged span.flag span:before,
+        span.flag span.flagged:before {
+            color: @pb-red;
+        }
+    }
+}
+
+// hover quick actions (Elastic's menu, extended by the patrabahok plugin)
+.listing-hover-menu {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    right: 12px !important;
+    left: auto !important;
+    padding: 3px;
+    border-radius: 999px;
+    border: 1px solid var(--pb-line);
+    background: var(--pb-surface);
+    box-shadow: @pb-shadow-md;
+
+    span.txt {
+        display: none;
+    }
+    a.button {
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
+        border-radius: 50%;
+        color: var(--pb-muted);
+        text-align: center;
+        transition: background .12s, color .12s;
+
+        &:hover {
+            background: var(--pb-selected);
+            color: @pb-blue;
+        }
+        &.delete:hover {
+            background: fade(@pb-red, 12%);
+            color: @pb-red;
+        }
+        &.pb-archive:before,
+        &.pb-read:before,
+        &.pb-unread:before {
+            font-family: 'Icons';
+            font-weight: 900;
+            font-size: 14px;
+        }
+        &.pb-archive:before {
+            content: "\f187";
+        }
+        &.pb-read:before {
+            content: "\f2b6";
+        }
+        &.pb-unread:before {
+            content: "\f0e0";
+        }
+    }
+}
+
+// list footer (pagination)
+#layout-list .footer,
+.pagenav {
+    background: var(--pb-surface);
+    border-top: 1px solid var(--pb-line);
+
+    .pagenav-text {
+        color: var(--pb-muted);
+        font-weight: 500;
+    }
+}
+
+// ------------------------------------------------------------- reading pane
+#layout-content {
+    background: var(--pb-surface);
+}
+#messagecontframe,
+.iframe-wrapper {
+    background: var(--pb-surface);
+}
+
+.task-mail.action-show #layout-content,
+.task-mail.action-preview #layout-content {
+    background: var(--pb-surface);
+}
+#message-header {
+    padding: 20px 24px 8px;
+    border-bottom: 1px solid var(--pb-line);
+    background: var(--pb-surface);
+
+    h2.subject {
+        font-size: 21px;
+        font-weight: 750;
+        line-height: 1.3;
+        color: var(--pb-ink);
+        margin-bottom: 14px;
+    }
+    .header {
+        align-items: center;
+    }
+    .header-summary {
+        color: var(--pb-muted);
+
+        .adr a.rcmContactAddress {
+            font-weight: 700;
+            color: var(--pb-ink);
+        }
+    }
+    .header-links a {
+        border-radius: 8px;
+        padding: 2px 8px;
+        color: var(--pb-muted);
+        font-weight: 500;
+
+        &:hover {
+            background: var(--pb-canvas);
+            color: @pb-blue;
+            text-decoration: none;
+        }
+    }
+}
+#message-content {
+    .attachmentslist {
+        padding: 12px 24px;
+
+        li {
+            border-radius: @pb-radius;
+            border: 1px solid var(--pb-line);
+            background: var(--pb-surface);
+            box-shadow: @pb-shadow-sm;
+            transition: box-shadow .15s, border-color .15s;
+
+            &:hover {
+                border-color: fade(@pb-blue, 40%);
+                box-shadow: @pb-shadow-md;
+            }
+        }
+    }
+    #messagebody {
+        padding: 20px 24px;
+    }
+}
+
+// --------------------------------------------------------------------- composer
+.task-mail.action-compose {
+    #layout-content {
+        background: var(--pb-canvas);
+    }
+    #layout-content > .header {
+        background: var(--pb-canvas);
+        border-bottom: 0;
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 750;
+        }
+    }
+
+    // the message: a centered card
+    #compose-content {
+        background: transparent;
+        padding: 6px 24px 0;
+
+        > form {
+            box-sizing: border-box;
+            width: 100%;
+            align-self: center;
+            max-width: 1040px;
+            margin: 0 auto;
+            background: var(--pb-surface);
+            border: 1px solid var(--pb-line);
+            border-radius: 18px 18px 0 0;
+            border-bottom: 0;
+            box-shadow: @pb-shadow-md;
+            padding: 6px 0 0;
+        }
+    }
+
+    // header fields: label-less rows separated by hairlines, Gmail style
+    #compose-headers {
+        padding: 0 22px;
+
+        .form-group.row {
+            margin: 0;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--pb-line-soft);
+            align-items: center;
+
+            > label {
+                color: var(--pb-muted);
+                font-weight: 600;
+                font-size: 13px;
+                flex: 0 0 72px;
+                max-width: 72px;
+                padding-left: 0;
+            }
+            // Bootstrap's .col-10 also sets width:100%, which with a flexible basis
+            // would wrap every field under its label.
+            > div {
+                flex: 1 1 0;
+                width: auto;
+                min-width: 0;
+                max-width: none;
+            }
+        }
+        .form-control,
+        .custom-select,
+        .recipient-input {
+            border: 0;
+            box-shadow: none !important;
+            background-color: transparent;
+            padding-left: 0;
+            font-size: 14px;
+        }
+        .input-group-text,
+        .input-group-append a {
+            border: 0;
+            background: transparent;
+            color: var(--pb-muted);
+            border-radius: 8px;
+
+            &:hover {
+                background: var(--pb-canvas);
+                color: @pb-blue;
+            }
+        }
+        #compose_subject {
+            border-bottom: 0;
+            padding-top: 10px;
+            padding-bottom: 6px;
+
+            > label {
+                display: none;
+            }
+            #compose-subject {
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: -.015em;
+                color: var(--pb-ink);
+
+                &::placeholder {
+                    color: var(--pb-placeholder);
+                }
+            }
+        }
+    }
+
+    // recipients as pills
+    .recipient-input {
+        li.recipient {
+            border-radius: 999px;
+            background: var(--pb-selected);
+            border: 1px solid fade(@pb-blue, 18%);
+            padding: 1px 4px 1px 10px;
+            font-weight: 600;
+            color: var(--pb-chip-text);
+
+            .email {
+                color: var(--pb-muted);
+                font-weight: 500;
+            }
+            a.button.icon.remove {
+                border-radius: 50%;
+                color: var(--pb-muted);
+
+                &:hover {
+                    background: fade(@pb-red, 12%);
+                    color: @pb-red;
+                }
+            }
+        }
+    }
+
+    // the body
+    #composebodycontainer {
+        padding: 0 22px 12px;
+
+        textarea#composebody {
+            border: 0;
+            box-shadow: none;
+            min-height: 46vh;
+            padding: 12px 0;
+            font-size: 15px;
+            line-height: 1.65;
+            resize: none;
+        }
+        .editor-toolbar {
+            border: 0;
+            background: transparent;
+        }
+        .tox-tinymce {
+            border: 0 !important;
+            border-radius: 0 !important;
+        }
+        .tox .tox-toolbar,
+        .tox .tox-toolbar__primary,
+        .tox .tox-editor-header {
+            background: var(--pb-editor-bar) !important;
+            border-radius: 10px;
+            box-shadow: none !important;
+            border: 0 !important;
+        }
+        .tox .tox-tbtn {
+            border-radius: 8px;
+        }
+    }
+
+    // sticky action bar under the card
+    #compose-content > .formbuttons {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        box-sizing: border-box;
+        width: 100%;
+        align-self: center;
+        max-width: 1040px;
+        margin: 0 auto 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        background: var(--pb-surface);
+        border: 1px solid var(--pb-line);
+        border-top: 1px solid var(--pb-line-soft);
+        border-radius: 0 0 18px 18px;
+        box-shadow: @pb-shadow-md;
+
+        .btn.send {
+            border: 0;
+            border-radius: 999px;
+            padding: 10px 26px 10px 22px;
+            font-weight: 700;
+            font-size: 14.5px;
+            background: @pb-gradient;
+            color: #fff;
+            box-shadow: 0 10px 20px -10px fade(@pb-green, 95%);
+            transition: filter .15s, transform .1s;
+
+            &:hover {
+                filter: brightness(1.06);
+            }
+            &:active {
+                transform: translateY(1px);
+            }
+        }
+        .float-right {
+            margin-left: auto;
+        }
+        a.extwin {
+            color: var(--pb-muted);
+            font-weight: 500;
+            border-radius: 10px;
+
+            &:hover {
+                background: var(--pb-canvas);
+                color: @pb-blue;
+                text-decoration: none;
+            }
+        }
+    }
+
+    // options and attachments panel
+    #layout-sidebar {
+        background: var(--pb-canvas);
+
+        > .header {
+            background: var(--pb-canvas);
+            border-bottom: 0;
+        }
+        .scroller,
+        .formcontainer {
+            padding: 4px 16px 16px;
+        }
+        #compose-attachments {
+            border: 2px dashed fade(@pb-blue, 28%);
+            border-radius: @pb-radius-lg;
+            background: var(--pb-surface);
+            transition: border-color .15s, background .15s;
+
+            &.hover,
+            &:hover {
+                border-color: @pb-blue;
+                background: var(--pb-selected);
+            }
+            .btn {
+                border-radius: 999px;
+                font-weight: 600;
+                background: @pb-blue;
+                border-color: @pb-blue;
+                color: #fff;
+            }
+            ul.attachmentslist li {
+                border-radius: 10px;
+                background: var(--pb-canvas);
+                border: 1px solid var(--pb-line);
+            }
+        }
+        .formcontent > .form-group,
+        table.propform {
+            background: var(--pb-surface);
+            border-radius: @pb-radius;
+        }
+    }
+}
+
+// Focus mode (patrabahok plugin): hide the chrome around the composer
+html.pb-focus-mode {
+    #layout-menu,
+    .task-mail.action-compose #layout-sidebar {
+        display: none !important;
+    }
+    .task-mail.action-compose #compose-content > form,
+    .task-mail.action-compose #compose-content > .formbuttons {
+        max-width: 820px;
+    }
+}
+
+// --------------------------------------------------------------- forms, buttons
+.btn {
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-primary {
+    background: @pb-blue;
+    border-color: @pb-blue;
+
+    &:hover,
+    &:focus {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
+    }
+}
+.form-control,
+.custom-select {
+    border-radius: 10px;
+}
+.custom-switch .custom-control-label:before {
+    border-radius: 999px;
+}
+
+// ---------------------------------------------------- popovers, menus, dialogs
+.popover {
+    border: 1px solid var(--pb-line);
+    border-radius: 14px;
+    box-shadow: @pb-shadow-lg;
+    overflow: hidden;
+
+    .popover-body {
+        padding: 6px;
+    }
+    ul.menu li a,
+    .menu a {
+        border-radius: 8px;
+
+        &:hover,
+        &:focus {
+            background: var(--pb-selected);
+            color: var(--pb-ink);
+        }
+    }
+}
+.ui-dialog {
+    border-radius: 18px !important;
+    border: 1px solid var(--pb-line) !important;
+    box-shadow: @pb-shadow-lg !important;
+    overflow: hidden;
+
+    .ui-dialog-titlebar {
+        padding: 18px 22px 8px;
+        border-bottom: 0;
+
+        .ui-dialog-title {
+            font-weight: 750;
+            font-size: 17px;
+        }
+    }
+    .ui-dialog-buttonpane {
+        border-top: 1px solid var(--pb-line);
+        background: var(--pb-canvas);
+    }
+}
+
+// messages / toasts from Roundcube itself (bottom right)
+#messagestack div {
+    border-radius: @pb-radius;
+    box-shadow: @pb-shadow-lg;
+    font-weight: 500;
+}
+
+// ---------------------------------------------------------- settings, contacts
+.task-settings,
+.task-addressbook {
+    .formcontent fieldset,
+    .propform fieldset {
+        border-radius: @pb-radius-lg;
+    }
+    legend {
+        font-weight: 700;
+    }
+}
+.task-addressbook #contacthead .contactphoto,
+.contact-photo {
+    border-radius: 50%;
+}
+
+// ------------------------------------------------------------------- dark mode
+// Surfaces and text follow the tokens above; only the rail and a few accents differ.
+html.dark-mode {
+    #layout-menu {
+        background: #071226;
+    }
+    .treelist li.selected > a {
+        background-color: fade(#60a5fa, 16%);
+        color: #93c5fd;
+    }
+    .popover,
+    .ui-dialog {
+        border-color: var(--pb-line) !important;
+    }
+    .task-mail.action-compose #layout-sidebar > .header .header-title {
+        color: var(--pb-ink);
+    }
+}
+
+// ------------------------------------------------------------------- sign in
+.task-login {
+    #layout-content.pb-login {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        min-height: 100vh;
+        padding: 0;
+        text-align: left;
+        background: var(--pb-canvas);
+    }
+    .pb-login-hero {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 44px 56px;
+        color: #fff;
+        background:
+            radial-gradient(1100px 560px at -10% -20%, fade(@pb-green, 32%), transparent 60%),
+            radial-gradient(900px 520px at 120% 120%, fade(@pb-blue, 34%), transparent 60%),
+            @pb-navy;
+    }
+    .pb-login-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 19px;
+        font-weight: 750;
+        letter-spacing: -.02em;
+    }
+    .pb-login-mark {
+        width: 40px;
+        height: 40px;
+        filter: drop-shadow(0 8px 18px fade(@pb-green, 45%));
+    }
+    .pb-login-pitch {
+        h2 {
+            font-size: 38px;
+            line-height: 1.12;
+            font-weight: 750;
+            letter-spacing: -.03em;
+            margin: 0 0 14px;
+            max-width: 520px;
+            color: #fff;
+        }
+        p {
+            color: #c7d3e6;
+            font-size: 16px;
+            max-width: 470px;
+            margin: 0 0 26px;
+        }
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 12px;
+        }
+        li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #dbe4f3;
+            font-size: 14.5px;
+        }
+    }
+    .pb-dot {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        flex-shrink: 0;
+        background: fade(#fff, 8%);
+        position: relative;
+
+        &:after {
+            content: "";
+            position: absolute;
+            inset: 9px;
+            border-radius: 50%;
+            background: @pb-green;
+            box-shadow: 0 0 10px fade(@pb-green, 80%);
+        }
+    }
+    .pb-login-foot {
+        font-size: 12px;
+        color: #8393ae;
+    }
+    .pb-login-panel {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px;
+    }
+    .pb-login-card {
+        width: min(400px, 100%);
+
+        #logo {
+            position: static;
+            display: none;
+        }
+    }
+    .pb-login-title {
+        font-size: 28px;
+        font-weight: 750;
+        letter-spacing: -.025em;
+        margin: 0 0 4px;
+        color: var(--pb-ink);
+    }
+    .pb-login-sub {
+        color: var(--pb-muted);
+        margin: 0 0 26px;
+    }
+    // Elastic's ui.js turns the server's table into Bootstrap input groups at runtime
+    // (each td.input becomes an .input-group with an icon), so keep that structure.
+    #login-form {
+        top: 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        position: static;
+
+        tr.form-group {
+            margin: 0 0 12px;
+        }
+        td.input.input-group {
+            display: flex;
+            flex-wrap: nowrap;
+            width: 100%;
+            padding: 0;
+            border-radius: @pb-radius;
+            box-shadow: @pb-shadow-sm;
+        }
+        .input-group-text {
+            height: 50px;
+            width: 46px;
+            justify-content: center;
+            border: 1px solid var(--pb-line);
+            border-right: 0;
+            border-radius: @pb-radius 0 0 @pb-radius;
+            background: var(--pb-surface);
+            color: var(--pb-muted);
+        }
+        .form-control {
+            height: 50px;
+            font-size: 15px;
+            border: 1px solid var(--pb-line);
+            border-left: 0;
+            border-radius: 0 @pb-radius @pb-radius 0;
+            background: var(--pb-surface);
+            color: var(--pb-ink);
+        }
+        td.input:focus-within {
+            box-shadow: 0 0 0 3px fade(@pb-blue, 18%);
+
+            .input-group-text,
+            .form-control {
+                border-color: @pb-blue;
+            }
+            .input-group-text {
+                color: @pb-blue;
+            }
+        }
+        .formbuttons {
+            margin: 18px 0 0;
+        }
+        #rcmloginsubmit {
+            height: 50px;
+            border: 0;
+            border-radius: @pb-radius;
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: none !important;
+            letter-spacing: 0;
+            background: @pb-gradient;
+            box-shadow: 0 12px 24px -12px fade(@pb-green, 95%);
+
+            &:hover {
+                filter: brightness(1.05);
+            }
+        }
+    }
+    #login-footer {
+        margin-top: 22px;
+        text-align: left;
+        color: var(--pb-muted);
+        font-size: 12.5px;
+    }
+    @media (max-width: 900px) {
+        #layout-content.pb-login {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .pb-login-hero {
+            display: none;
+        }
+        .pb-login-card #logo {
+            display: block;
+            max-height: 56px;
+            margin: 0 0 18px;
+        }
+    }
+}
+
+// floating compose button (touch layouts)
+.floating-action-buttons a.button {
+    background: @pb-gradient !important;
+    box-shadow: 0 14px 28px -12px fade(@pb-green, 95%) !important;
+}

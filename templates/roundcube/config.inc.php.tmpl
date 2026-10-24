@@ -27,11 +27,31 @@ $config['use_https'] = true;
 
 $config['des_key'] = '{{DES_KEY}}';
 $config['product_name'] = '{{PRODUCT_NAME}}';
-$config['skin'] = 'elastic';
+$config['skin'] = '{{SKIN}}';
 $config['enable_installer'] = false;
 $config['log_dir'] = '/var/log/roundcube/';
 $config['temp_dir'] = '/var/lib/roundcube/temp/';
 $config['mime_types'] = '/etc/mime.types';
 $config['max_message_size'] = '25M';
 
-$config['plugins'] = ['archive', 'zipdownload', 'password'];
+// Modern composing defaults; every user can change them under Settings.
+$config['htmleditor'] = 1;
+$config['default_font'] = 'Arial';
+$config['default_font_size'] = '11pt';
+$config['draft_autosave'] = 60;
+
+$config['plugins'] = [{{PLUGINS}}];
+
+// managesieve: mail filters, vacation auto-replies and forwarding rules, through
+// Dovecot's ManageSieve service on loopback (lib/phases/90-webmail.sh enables it).
+$config['managesieve_host'] = 'localhost';
+$config['managesieve_vacation'] = 1;
+$config['managesieve_forward'] = 1;
+$config['managesieve_script_name'] = 'roundcube';
+
+// newmail_notifier: desktop notifications are offered, off until each user opts in.
+$config['newmail_notifier_basic'] = true;
+$config['newmail_notifier_desktop'] = false;
+
+// markasjunk: "Junk" moves to the Junk folder the spam filter already files into.
+$config['markasjunk_spam_mbox'] = 'Junk';

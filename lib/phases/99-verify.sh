@@ -35,7 +35,7 @@ phase_run() {
 
   local svc webmail_services=()
   case "$(state_get webmail)" in
-    roundcube) webmail_services=(nginx "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)-fpm") ;;
+    patrabahok|roundcube) webmail_services=(nginx "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)-fpm") ;;
     custom) webmail_services=(postgresql patrabahok-mail) ;;
   esac
   for svc in postfix dovecot rspamd redis-server clamav-daemon fail2ban unbound mariadb patrabahokd "${webmail_services[@]}"; do

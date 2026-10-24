@@ -1,0 +1,168 @@
+/**
+ * patrabahok skin: design tokens. Compiled together with Elastic's LESS
+ * (see webmail/roundcube/build-skin.sh), overriding Elastic's palette and sizes.
+ * Derivative of Roundcube's Elastic skin; CC BY-SA 3.0 (see ../../README.md).
+ */
+
+// ---- brand palette (shared with the patrabahok admin dashboard) ----
+@pb-navy:        #0b1c39;
+@pb-navy-2:      #13294d;
+@pb-blue:        #2563eb;
+@pb-blue-soft:   #eef4ff;
+@pb-green:       #17a558;
+@pb-teal:        #0eaf9b;
+@pb-red:         #e11d48;
+@pb-amber:       #f0900f;
+@pb-ink:         #101828;
+@pb-ink-2:       #344054;
+@pb-muted:       #667085;
+@pb-line:        #e4e8f0;
+@pb-line-strong: #d0d7e2;
+@pb-canvas:      #f6f8fb;
+@pb-surface:     #ffffff;
+@pb-radius:      12px;
+@pb-radius-lg:   16px;
+@pb-font:        "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+// ---- Elastic palette ----
+@color-main:                @pb-blue;
+@color-main-dark:           #1d4ed8;
+@color-black:               @pb-ink;
+@color-font:                @pb-ink;
+@color-link:                @pb-blue;
+@color-link-hover:          #1d4ed8;
+@color-border:              @pb-line;
+@color-error:               @pb-red;
+@color-success:             @pb-green;
+@color-warning:             @pb-amber;
+@color-black-shade-text:    @pb-muted;
+@color-black-shade-border:  @pb-line;
+@color-black-shade-bg:      #eef1f6;
+
+@color-layout-border:               @pb-line;
+@color-layout-header:               @pb-ink;
+@color-layout-sidebar-background:   @pb-canvas;
+@color-layout-list-background:      @pb-surface;
+@color-layout-content-background:   @pb-surface;
+@color-layout-header-background:    @pb-surface;
+@color-layout-footer-background:    @pb-surface;
+@color-layout-mobile-header-background: @pb-surface;
+@color-layout-mobile-footer-background: @pb-surface;
+
+@color-taskmenu-background:                     @pb-navy;
+@color-taskmenu-button:                         #8393ae;
+@color-taskmenu-button-selected:                #ffffff;
+@color-taskmenu-button-action:                  #ffffff;
+@color-taskmenu-button-selected-background:     fade(@pb-green, 14%);
+@color-taskmenu-button-action-background:       transparent;
+@color-taskmenu-button-hover:                   #ffffff;
+@color-taskmenu-button-selected-hover:          #ffffff;
+@color-taskmenu-button-action-hover:            #ffffff;
+@color-taskmenu-button-background-hover:        fade(#ffffff, 6%);
+@color-taskmenu-button-action-background-hover: transparent;
+@color-taskmenu-button-logout:                  #fda4af;
+@color-taskmenu-button-logout-hover:            #ffffff;
+
+@color-toolbar-button:                  @pb-ink-2;
+@color-toolbar-button-background-hover: @pb-canvas;
+@color-searchbar-background:            @pb-surface;
+
+@color-menu-hover:               @pb-ink;
+@color-menu-hover-background:    @pb-blue-soft;
+
+@color-list:                        @pb-ink;
+@color-list-selected:               @pb-ink;
+@color-list-selected-background:    @pb-blue-soft;
+@color-list-flagged:                @pb-ink;
+@color-list-deleted:                fade(@pb-ink, 45%);
+@color-list-secondary:              @pb-muted;
+@color-list-droptarget-background:  #fff7e6;
+@color-list-focus-indicator:        fade(@pb-blue, 40%);
+@color-list-border:                 #eef1f6;
+@color-list-badge:                  #ffffff;
+@color-list-badge-background:       @pb-blue;
+@color-list-recent:                 @pb-blue;
+@color-list-recent-badge:           #ffffff;
+@color-list-recent-badge-background: @pb-blue;
+@color-list-pagenav:                @pb-muted;
+@color-list-icon:                   #98a2b3;
+@color-list-unread-status:          @pb-blue;
+@color-attachmentlist-border:       @pb-line;
+@color-attachmentlist-background:   @pb-canvas;
+@color-drag-layer-background:       @pb-navy;
+
+@color-message-background:          fade(@pb-blue, 6%);
+@color-message-information:         @pb-navy;
+@color-message-success:             @pb-green;
+@color-message-warning:             @pb-amber;
+@color-message-error:               @pb-red;
+@color-message-loading:             @pb-navy-2;
+
+@color-popover-shadow:              fade(@pb-ink, 18%);
+@color-dialog-overlay-background:   fade(#020617, 50%);
+@color-dialog-header:               @pb-ink;
+@color-dialog-header-border:        @pb-line;
+
+@color-input:                       @pb-ink;
+@color-input-border:                @pb-line-strong;
+@color-input-border-focus:          @pb-blue;
+@color-input-border-focus-shadow:   fade(@pb-blue, 18%);
+@color-input-border-invalid:        @pb-red;
+@color-input-addon-background:      @pb-canvas;
+@color-recipient-input-border:      fade(@pb-blue, 22%);
+@color-recipient-input-background:  @pb-blue-soft;
+@color-input-placeholder:           #98a2b3;
+@color-checkbox:                    @pb-line-strong;
+@color-checkbox-checked:            @pb-blue;
+@color-checkbox-focus:              @pb-blue;
+@color-form-hint:                   @pb-muted;
+
+@color-btn-primary:                 #ffffff;
+@color-btn-primary-background:      @pb-blue;
+@color-btn-secondary:               @pb-ink;
+@color-btn-secondary-background:    #eef1f6;
+@color-btn-danger-background:       @pb-red;
+
+@color-quota-background:            #e9eef6;
+@color-quota-value:                 @pb-green;
+@color-quota-value-warning:         @pb-red;
+
+@color-blockquote-0-border:         #93c5fd;
+@color-blockquote-1-border:         #86efac;
+@color-blockquote-2-border:         #fcd34d;
+@color-table-selected-background:   @pb-blue-soft;
+@color-scrollbar-thumb:             #cfd6e1;
+
+// ---- dark mode ----
+@color-dark-main:                   #60a5fa;
+@color-dark-background:             #0b1426;
+@color-dark-font:                   #e6edf7;
+@color-dark-border:                 #1e2f4f;
+@color-dark-hint:                   #8898b3;
+@color-dark-information:            #60a5fa;
+@color-dark-success:                #34d399;
+@color-dark-warning:                #fbbf24;
+@color-dark-error:                  #fb7185;
+@color-dark-list-selected:          #ffffff;
+@color-dark-list-selected-background: #16284a;
+@color-dark-list-badge:             #0b1426;
+@color-dark-list-badge-background:  #60a5fa;
+@color-dark-list-border:            #16243f;
+@color-dark-input:                  #e6edf7;
+@color-dark-input-border:           #2a3d63;
+@color-dark-input-background:       #0f1d36;
+@color-dark-input-border-focus:     #60a5fa;
+@color-dark-input-background-focus: #12223f;
+@color-dark-input-addon-background: #13254a;
+@color-dark-btn-primary-background: #2563eb;
+@color-dark-btn-secondary-background: #1a2e52;
+@color-dark-popover-background:     #0f1d36;
+@color-dark-popover-border:         #1e2f4f;
+@color-dark-scrollbar-thumb:        #2a3d63;
+@color-dark-scrollbar-track:        #0b1426;
+
+// ---- sizes ----
+@page-font-size:          14px;
+@layout-menu-width:       84px;
+@layout-header-height:    60px;
+@layout-searchbar-height: 40px;

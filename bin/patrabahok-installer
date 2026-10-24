@@ -92,6 +92,11 @@ cmd_install() {
     log_info "Release changed ($(state_get cli_built_version unknown) -> ${PATRABAHOK_INSTALLER_VERSION}); 95-cli will rebuild patrabahok/patrabahokd."
     state_unmark 95-cli
   fi
+  # Same for patrabahok Webmail, whose skin and plugin ship inside this release.
+  if state_is_done 90-webmail && [ "$(state_get webmail)" = "patrabahok" ]     && [ "$(state_get webmail_built_version)" != "$PATRABAHOK_INSTALLER_VERSION" ]; then
+    log_info "Release changed; 90-webmail will refresh the patrabahok Webmail skin and plugin."
+    state_unmark 90-webmail
+  fi
 
   local phase_file phase_name rc
   for phase_file in "$PATRABAHOK_PHASES_DIR"/*.sh; do

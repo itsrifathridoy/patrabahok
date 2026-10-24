@@ -70,7 +70,7 @@ func Catalog(webmail string) []ServiceDef {
 			Warning: "The dashboard is unavailable for a few seconds while it restarts. Reload the page afterwards."},
 	}
 	switch webmail {
-	case "roundcube":
+	case "patrabahok", "roundcube":
 		all = append(all,
 			ServiceDef{Unit: "nginx", Label: "nginx", Description: "Serves Roundcube webmail (loopback only)", Actions: []string{Restart, Reload}},
 			ServiceDef{Unit: phpFPMUnit(), Label: "PHP-FPM", Description: "Runs Roundcube webmail", Actions: []string{Restart, Reload}})
