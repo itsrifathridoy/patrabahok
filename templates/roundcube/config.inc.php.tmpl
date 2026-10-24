@@ -55,3 +55,9 @@ $config['newmail_notifier_desktop'] = false;
 
 // markasjunk: "Junk" moves to the Junk folder the spam filter already files into.
 $config['markasjunk_spam_mbox'] = 'Junk';
+
+// patrabahok_guard (patrabahok Webmail only; ignored when the plugin is not loaded):
+// phishing warnings, ClamAV attachment scanning and inbox categories. clamd is the
+// one phase 70 sets up; uploads and attachments larger than the limit are not scanned.
+$config['patrabahok_guard_clamd'] = 'unix:///var/run/clamav/clamd.ctl';
+$config['patrabahok_guard_scan_max_size'] = 25 * 1024 * 1024;

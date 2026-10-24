@@ -1,1 +1,14 @@
+# Managed by patrabahok (lib/phases/70-rspamd-clamav.sh).
+# X-Spamd-Result & co. (extended_spam_headers) plus an Authentication-Results header,
+# which the webmail's phishing check reads to show "verified sender" and DMARC/SPF
+# failures. Rspamd removes any Authentication-Results the sender brought along, so
+# the topmost one is always ours.
 extended_spam_headers = true;
+use = ["authentication-results"];
+routines {
+  authentication-results {
+    header = "Authentication-Results";
+    remove = 1;
+    add_smtp_user = false;
+  }
+}

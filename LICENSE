@@ -24,6 +24,6 @@ SOFTWARE.
 
 webmail/roundcube/skins/patrabahok is a derivative of Roundcube's Elastic skin and is licensed
 under the Creative Commons Attribution-ShareAlike 3.0 license (see its README.md).
-webmail/roundcube/plugins/patrabahok is a Roundcube plugin and is licensed under the GNU GPL
-v3 or later, like Roundcube itself. The bundled Plus Jakarta Sans font is under the SIL Open
+webmail/roundcube/plugins/patrabahok and webmail/roundcube/plugins/patrabahok_guard are
+Roundcube plugins and are licensed under the GNU GPL v3 or later, like Roundcube itself. The bundled Plus Jakarta Sans font is under the SIL Open
 Font License 1.1 (webmail/roundcube/skins/patrabahok/fonts/OFL.txt).

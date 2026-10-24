@@ -118,8 +118,15 @@ https://<hostname>/<anything else>                ──▶ reverse proxy to the
   fail2ban bans) can't be spoofed.
 - Nothing listens on `:80`, because certbot's standalone HTTP-01 issuance and renewal need it.
   That's why Roundcube's nginx binds loopback only and the distro's default site is removed.
-- patrabahok Webmail is Roundcube plus this repo's `webmail/roundcube/` skin and plugin, copied
-  into the release on every run of `90-webmail` so upgrades ship UI changes. Dovecot's
+- patrabahok Webmail is Roundcube plus this repo's `webmail/roundcube/` skin and two plugins,
+  copied into the release on every run of `90-webmail` (the installer re-runs that phase when
+  the release changes), so upgrades ship UI changes. `patrabahok` is the interface layer:
+  snippets are built in batches (one BODYSTRUCTURE fetch, then one partial FETCH per text part
+  number) and cached in the session, and quick reply goes through Roundcube's own
+  `rcmail_sendmail`. `patrabahok_guard` does the security work and categories. Categories are
+  IMAP keywords (`$pbcat` plus `$pbsocial`, `$pbpromotions`, `$pbupdates`, `$pbforums`) set by
+  header-only classification of unclassified INBOX messages when the list loads. The tabs are
+  plain IMAP SEARCH filters, so the server does the filtering and nothing needs a database. Dovecot's
   ManageSieve listens on `127.0.0.1:4190` only, for the filters and vacation-reply settings.
 - Roundcube is a pinned, checksum-verified upstream release (`/opt/roundcube/releases/<version>`,
   `current` symlink) rather than the distro package. The distro package's version differs across

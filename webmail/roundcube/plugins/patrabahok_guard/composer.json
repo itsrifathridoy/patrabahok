@@ -1,0 +1,10 @@
+{
+    "name": "patrabahok/patrabahok_guard",
+    "type": "roundcube-plugin",
+    "description": "Phishing warnings, ClamAV attachment scanning and automatic inbox categories for the patrabahok Webmail.",
+    "license": "GPL-3.0-or-later",
+    "require": {
+        "php": ">=8.1",
+        "roundcube/plugin-installer": ">=0.1.3"
+    }
+}

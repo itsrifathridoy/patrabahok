@@ -31,10 +31,12 @@ You'll be asked for:
 - **Webmail client**, served at `https://<mail hostname>/`:
   - `patrabahok` (the default): patrabahok Webmail, a redesigned client built on the
     [Roundcube](https://roundcube.net) 1.7 engine (`webmail/roundcube/`). It has a new interface
-    (light and dark), a modern composer with undo send, emoji and focus mode, a command palette
-    (Ctrl/Cmd+K), Gmail-style keyboard shortcuts, quick filters, hover actions and avatars, plus
-    every Roundcube feature: contacts, filters and vacation replies (ManageSieve), password
-    change, archive, junk reporting, zip download and new-mail notifications.
+    (light and dark, phone to desktop), message previews, Gmail-style inbox categories, a modern
+    composer with undo send, inline quick reply, a command palette (Ctrl/Cmd+K) and keyboard
+    shortcuts. Attachments are virus-scanned with ClamAV and suspicious links and spoofed senders
+    are flagged in the reader. Every Roundcube feature stays: contacts, filters and vacation
+    replies (ManageSieve), password change, archive, junk reporting, zip download and new-mail
+    notifications.
   - `roundcube`: the same engine with Roundcube's stock Elastic look.
 
     Both run on nginx + PHP-FPM on loopback only, and failed logins are banned by fail2ban.

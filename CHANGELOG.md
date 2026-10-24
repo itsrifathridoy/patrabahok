@@ -4,12 +4,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- **patrabahok Webmail**, the new default webmail (`webmail/roundcube/`): Roundcube 1.7 with a
-  redesigned skin (navy rail, Plus Jakarta Sans, light and dark themes, split-screen sign-in,
-  card-style composer with recipient chips and a sticky send bar) and a plugin adding undo send
-  (configurable 0–30 s), a Ctrl/Cmd+K command palette, Gmail-style keyboard shortcuts with a `?`
-  cheat sheet, quick filter chips, hover Archive/read/unread actions, initial avatars, an emoji
-  picker, focus mode and a live word count. Filters, vacation replies and forwarding rules work
+- **patrabahok Webmail**, the new default webmail (`webmail/roundcube/`): Roundcube 1.7 as the
+  engine with a completely redesigned interface, light and dark, responsive from phone to wide
+  desktop: a three-pane layout with card-style message rows (text preview, attachment chips,
+  avatars, star), a reader with a "1 of N" pager, sender verification badge and inline quick
+  reply, a split-screen sign-in, and a composer with the identity as a pill, recipient chips, a
+  floating formatting bar on text selection, smart-reply chips, attachment cards and a send bar
+  with a split "Send now" button. The `patrabahok` plugin adds undo send (0–30 s, also for quick
+  replies), a Ctrl/Cmd+K command palette, Gmail-style keyboard shortcuts with a `?` cheat sheet,
+  a quick filter menu, hover Archive/read/unread actions, an emoji picker, focus mode, a word
+  count and a discard button.
+- **patrabahok_guard** webmail plugin (`webmail/roundcube/plugins/patrabahok_guard`):
+  - phishing and spoofing warnings in the reader: mismatched link text, IP or punycode hosts,
+    brand and own-domain lookalikes, display-name spoofing, Reply-To mismatches, DMARC/SPF
+    failures and Rspamd phishing symbols. Risky links are marked and ask before opening.
+  - every attachment is scanned with ClamAV (clamd INSTREAM). Infected parts show a badge and
+    are never served (download, open or "download all"). Infected uploads in the composer are
+    rejected.
+  - Gmail-style inbox categories (Primary, Social, Promotions, Updates, Forums), classified
+    from headers and stored as IMAP keywords, shown as tabs and in the sidebar.
+  - Rspamd now adds an `Authentication-Results` header (`milter_headers.conf`), which the reader
+    uses for the "verified sender" badge. Phase 90 refreshes it on upgraded servers.
+- Filters, vacation replies and forwarding rules in the webmail work
   through Dovecot ManageSieve (loopback only, `dovecot-managesieved`), and the archive,
   markasjunk, zipdownload, newmail_notifier, attachment_reminder, emoticons, hide_blockquote and
   vcard_attachments plugins are enabled. Existing servers switch with

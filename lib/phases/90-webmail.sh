@@ -140,13 +140,32 @@ install_roundcube() {
   if [ "$flavor" = "patrabahok" ]; then
     local src="$PATRABAHOK_HOME/webmail/roundcube"
     [ -f "$src/skins/patrabahok/meta.json" ] || die "patrabahok webmail skin not found at $src"
-    rm -rf "${release}/skins/patrabahok" "${release}/plugins/patrabahok"
+    rm -rf "${release}/skins/patrabahok" "${release}/plugins/patrabahok" "${release}/plugins/patrabahok_guard"
     cp -r "$src/skins/patrabahok" "${release}/skins/patrabahok"
     cp -r "$src/plugins/patrabahok" "${release}/plugins/patrabahok"
+    cp -r "$src/plugins/patrabahok_guard" "${release}/plugins/patrabahok_guard"
     rm -rf "${release}/skins/patrabahok/styles/src"
-    chown -R root:root "${release}/skins/patrabahok" "${release}/plugins/patrabahok"
+    chown -R root:root "${release}/skins/patrabahok" "${release}/plugins/patrabahok" "${release}/plugins/patrabahok_guard"
+    # patrabahok_guard scans attachments through clamd's socket (phase 70). Debian's
+    # clamd.conf makes it world-writable (LocalSocketMode 666); group membership keeps
+    # it working when an admin tightens that to 660.
+    if getent group clamav >/dev/null 2>&1; then
+      usermod -aG clamav www-data
+    fi
+    # The guard's "verified sender" and DMARC/SPF warnings read the Authentication-Results
+    # header Rspamd adds. Phase 70 renders this template on new installs; refresh it here
+    # so upgraded servers get it without re-running phase 70.
+    if [ -d /etc/rspamd/local.d ]; then
+      local mh=/etc/rspamd/local.d/milter_headers.conf
+      local mh_old=""
+      [ -f "$mh" ] && mh_old="$(cat "$mh")"
+      render_template "$PATRABAHOK_HOME/templates/rspamd/local.d/milter_headers.conf.tmpl" "$mh"
+      if [ "$(cat "$mh")" != "$mh_old" ] && systemctl is-active --quiet rspamd; then
+        rspamadm configtest >/dev/null 2>&1 && systemctl reload rspamd
+      fi
+    fi
     skin="patrabahok"
-    plugins="'patrabahok', ${plugins}"
+    plugins="'patrabahok', 'patrabahok_guard', ${plugins}"
     product="patrabahok Webmail"
   fi
 

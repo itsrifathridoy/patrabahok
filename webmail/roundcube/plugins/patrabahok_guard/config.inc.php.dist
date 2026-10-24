@@ -1,0 +1,24 @@
+<?php
+
+// patrabahok_guard configuration. Copy to config.inc.php to change the defaults, or set
+// these in Roundcube's main config/config.inc.php (the patrabahok installer does that).
+
+// clamd address for attachment scanning: unix:///path/to/clamd.ctl or tcp://host:port.
+// Empty string disables scanning. With a Unix socket that does not exist, scanning is
+// switched off silently (no badges, uploads allowed).
+// The patrabahok installer's clamd listens on /var/run/clamav/clamd.ctl.
+$config['patrabahok_guard_clamd'] = 'unix:///var/run/clamav/clamd.ctl';
+
+// Largest attachment (bytes) that is sent to clamd. Keep it at or below clamd's
+// StreamMaxLength (25M on Debian/Ubuntu); larger files get a "Too large" badge.
+$config['patrabahok_guard_scan_max_size'] = 25 * 1024 * 1024;
+
+// Seconds to wait for a clamd connection, and for one scan to finish. An unreachable
+// clamd is remembered for a minute, so it never slows the interface down.
+$config['patrabahok_guard_clamd_connect_timeout'] = 2;
+$config['patrabahok_guard_clamd_scan_timeout'] = 20;
+
+// Default of the per-user preference "Sort the inbox into categories"
+// (Settings > Preferences > Mailbox View). Add 'patrabahok_categories' to
+// dont_override to force it for everyone.
+$config['patrabahok_categories'] = true;
