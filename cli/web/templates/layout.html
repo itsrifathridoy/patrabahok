@@ -49,11 +49,14 @@
         {{template "nav-item" (dict "href" "/queue" "key" "queue" "icon" "inbox" "label" "Mail queue" "active" .Active)}}
 
         <div class="nav-group-label">Security</div>
+        {{template "nav-item" (dict "href" "/security/bans" "key" "bans" "icon" "shield-ban" "label" "Firewall & bans" "active" .Active)}}
         {{template "nav-item" (dict "href" "/admins" "key" "admins" "icon" "lock" "label" "Administrators" "active" .Active)}}
         {{template "nav-item" (dict "href" "/audit" "key" "audit" "icon" "history" "label" "Audit log" "active" .Active)}}
         {{template "nav-item" (dict "href" "/tokens" "key" "tokens" "icon" "key" "label" "API access" "active" .Active)}}
 
         <div class="nav-group-label">System</div>
+        {{template "nav-item" (dict "href" "/services" "key" "services" "icon" "server" "label" "Services" "active" .Active)}}
+        {{template "nav-item" (dict "href" "/logs" "key" "logs" "icon" "file" "label" "Logs" "active" .Active)}}
         {{template "nav-item" (dict "href" "/diagnostics" "key" "diagnostics" "icon" "activity" "label" "Diagnostics" "active" .Active)}}
         {{template "nav-item" (dict "href" "/settings" "key" "settings" "icon" "gear" "label" "Settings" "active" .Active)}}
       </nav>

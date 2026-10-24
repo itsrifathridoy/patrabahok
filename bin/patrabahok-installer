@@ -84,6 +84,15 @@ cmd_install() {
   # harmlessly on a fresh install before MariaDB/the database exist yet.
   apply_pending_migrations
 
+  # The CLI/daemon binaries are compiled from this release's source by 95-cli. Once that
+  # phase is "done" it would never run again, so an upgrade would keep running the old
+  # binaries (and old systemd unit) against new templates and schema. Rebuild whenever
+  # the release differs from the one that built them.
+  if state_is_done 95-cli && [ "$(state_get cli_built_version)" != "$PATRABAHOK_INSTALLER_VERSION" ]; then
+    log_info "Release changed ($(state_get cli_built_version unknown) -> ${PATRABAHOK_INSTALLER_VERSION}); 95-cli will rebuild patrabahok/patrabahokd."
+    state_unmark 95-cli
+  fi
+
   local phase_file phase_name rc
   for phase_file in "$PATRABAHOK_PHASES_DIR"/*.sh; do
     [ -e "$phase_file" ] || continue

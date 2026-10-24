@@ -30,6 +30,15 @@ state_mark_done() {
   chmod 600 "$PATRABAHOK_STATE_FILE"
 }
 
+# state_unmark PHASE — forget a phase's status so the next install run executes it again.
+state_unmark() {
+  local phase="$1"
+  local tmp; tmp=$(mktemp)
+  jq --arg p "$phase" 'del(.phases[$p])' "$PATRABAHOK_STATE_FILE" > "$tmp"
+  mv "$tmp" "$PATRABAHOK_STATE_FILE"
+  chmod 600 "$PATRABAHOK_STATE_FILE"
+}
+
 state_mark_failed() {
   local phase="$1" err="${2:-unknown error}"
   local tmp; tmp=$(mktemp)

@@ -49,6 +49,9 @@ var pageFiles = map[string]string{
 	"domain":       "templates/domain.html",
 	"dkim":         "templates/dkim.html",
 	"queue":        "templates/queue.html",
+	"bans":         "templates/bans.html",
+	"services":     "templates/services.html",
+	"logs":         "templates/logs.html",
 	"diagnostics":  "templates/diagnostics.html",
 	"tokens":       "templates/tokens.html",
 	"admins":       "templates/admins.html",
@@ -272,6 +275,7 @@ var funcMap = template.FuncMap{
 	"pathEscape": url.PathEscape,
 	"add":        func(a, b int) int { return a + b },
 	"quotaKey":   quotaKey,
+	"list":       func(v ...int) []int { return v },
 	"inChoices": func(v string, choices []string) bool {
 		for _, c := range choices {
 			if c == v {

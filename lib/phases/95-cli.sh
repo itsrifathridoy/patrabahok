@@ -135,6 +135,7 @@ phase_run() {
   done
 
   ensure_initial_webadmin
+  state_set cli_built_version "${PATRABAHOK_INSTALLER_VERSION:-dev}"
 
   log_ok "Installed patrabahok CLI, patrabahokd API (unix:///run/patrabahok/api.sock), and admin dashboard (https://<hostname>:8443/)"
   log_ok "Public per-domain API: https://$(state_get hostname)/api/<domain>/mailbox (create a domain's key in the dashboard's Domains page, or: patrabahok api key generate <domain>)"

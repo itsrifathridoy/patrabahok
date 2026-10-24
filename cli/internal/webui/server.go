@@ -113,8 +113,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /dkim/rotate", s.requireAuth(s.handleDKIMRotate))
 
 	s.mux.HandleFunc("GET /queue", s.requireAuth(s.handleQueuePage))
-	s.mux.HandleFunc("GET /queue/partial", s.requireAuth(s.handleQueuePartial))
 	s.mux.HandleFunc("POST /queue/flush", s.requireAuth(s.handleQueueFlush))
+	s.mux.HandleFunc("POST /queue/delete-deferred", s.requireAuth(s.handleQueueDeleteDeferred))
+	s.mux.HandleFunc("POST /queue/{id}/{action}", s.requireAuth(s.handleQueueAction))
+
+	s.mux.HandleFunc("GET /security/bans", s.requireAuth(s.handleBansPage))
+	s.mux.HandleFunc("POST /security/bans/unban", s.requireAuth(s.handleUnban))
+	s.mux.HandleFunc("POST /security/bans/ban", s.requireAuth(s.handleBan))
+	s.mux.HandleFunc("POST /security/allowlist", s.requireAuth(s.handleAllowlistAdd))
+	s.mux.HandleFunc("DELETE /security/allowlist", s.requireAuth(s.handleAllowlistRemove))
+
+	s.mux.HandleFunc("GET /services", s.requireAuth(s.handleServicesPage))
+	s.mux.HandleFunc("POST /services/{unit}/{action}", s.requireAuth(s.handleServiceAction))
+	s.mux.HandleFunc("GET /services/{unit}/logs", s.requireAuth(s.handleServiceLogs))
+
+	s.mux.HandleFunc("GET /logs", s.requireAuth(s.handleLogsPage))
 
 	s.mux.HandleFunc("GET /diagnostics", s.requireAuth(s.handleDiagnosticsPage))
 	s.mux.HandleFunc("GET /diagnostics/partial", s.requireAuth(s.handleDiagnosticsPartial))
