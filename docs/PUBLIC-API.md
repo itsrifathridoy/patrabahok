@@ -18,7 +18,8 @@ reachable from the internet, but each key can only manage its own domain's mailb
 ## Transport
 
 `patrabahokd` serves it on the mail server's public HTTPS port, `https://<mail hostname>/api/`,
-with the same Let's Encrypt certificate as IMAP/SMTP. The same `:443` listener also serves the
+with the same Let's Encrypt certificate as IMAP/SMTP. It also answers on the dashboard port
+(`https://<mail hostname>:8443/api/`) with identical behavior. The same `:443` listener also serves the
 webmail and MTA-STS policy files (see [ARCHITECTURE.md](ARCHITECTURE.md#public-https-listener-443)).
 
 ## API keys

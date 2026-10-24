@@ -178,7 +178,7 @@ GET /v1/mailboxes?domain=example.com
 ### `POST /v1/mailboxes` — scope: `mailbox`
 
 `quota_bytes` defaults to `1073741824` (1G) if omitted or `<= 0`. The password is hashed
-(`doveadm pw -s SHA512-CRYPT`) before it ever reaches the database — never stored or logged in
+in-process (Dovecot `{SHA512-CRYPT}`) before it ever reaches the database — never stored or logged in
 plaintext.
 
 ```http

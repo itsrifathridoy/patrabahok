@@ -39,7 +39,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`cli/internal/frontdoor`) now also serves the public API and reverse-proxies the webmail
   (`-webmail-upstream`).
 
+### Security
+- Mailbox addresses are now validated as RFC 5322 dot-atoms. Before, a local part such as
+  `../../x` let mailbox create/delete (as root, from the dashboard, CLI or local API) reach paths
+  outside `/var/mail/vhosts`.
+- Passwords are hashed in-process instead of by `doveadm pw -p <password>`, which exposed them in
+  the process list.
+- The group policy service no longer trusts authenticated loopback sessions. Webmail submits
+  through 127.0.0.1:587, so any webmail user could post to owners-only groups.
+- Changing an admin password signs out that admin's other sessions (new
+  `patrabahok webadmin passwd`), and the initial admin password is no longer written to
+  `install.log`.
+
 ### Fixed
+- The installer's A/MX pre-check always reported "not confirmed" (it passed `dig` one quoted
+  argument), and Postfix warned about backwards-compatible defaults (`compatibility_level` is now
+  3.6).
+- New mailboxes only had INBOX; Dovecot now auto-creates Drafts/Sent/Junk/Trash/Archive.
 - Setting a mailbox's quota to its current value reported "not found", because MariaDB counts an
   unchanged row as zero affected rows.
 
