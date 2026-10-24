@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,8 +17,10 @@ import (
 	"golang.org/x/term"
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/adminauth"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/audit"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/db"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/domainkey"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/sysinfo"
@@ -41,12 +44,26 @@ Usage:
   patrabahok domain add <domain>
   patrabahok domain list
   patrabahok domain remove <domain> [--force]
+  patrabahok domain catchall <domain> [<address>|off]   # mail for nonexistent addresses
 
   patrabahok mailbox add <user@domain> [--quota 500M] [--password PASS]
   patrabahok mailbox list [domain]
   patrabahok mailbox remove <user@domain> [--force]
   patrabahok mailbox passwd <user@domain> [--password PASS]
   patrabahok mailbox quota <user@domain> <quota>    # e.g. 2G, 500M
+  patrabahok mailbox name <user@domain> <display name>
+  patrabahok mailbox enable|disable <user@domain>
+  patrabahok mailbox forward <user@domain> <address>|off [--no-copy]
+
+  patrabahok group create <group@domain> [--name N] [--description D] [--post P] [--external]
+                  # P: anyone | organization (default) | members | owners
+  patrabahok group update <group@domain> [--name N] [--description D] [--post P] [--external|--no-external]
+  patrabahok group list [domain]
+  patrabahok group show <group@domain>
+  patrabahok group delete <group@domain>
+  patrabahok group add <group@domain> <address>... [--owner]
+  patrabahok group remove <group@domain> <address>
+  patrabahok group role <group@domain> <address> member|owner
 
   patrabahok alias add <alias@domain> <target@domain>
   patrabahok alias list [domain]
@@ -61,10 +78,15 @@ Usage:
   patrabahok queue flush
 
   patrabahok status
+  patrabahok audit [--search TEXT] [--limit N]
 
   patrabahok api token create <name> [--scope domain,mailbox,...]
   patrabahok api token list
   patrabahok api token revoke <name>
+
+  patrabahok api key generate <domain>    # public per-domain API key; replaces any existing one
+  patrabahok api key list
+  patrabahok api key revoke <domain>
 
   patrabahok webadmin add <username> [--password PASS]
   patrabahok webadmin list
@@ -98,6 +120,15 @@ func run(args []string) error {
 	webAdmins := adminauth.NewStore(conn)
 	ctx := context.Background()
 
+	auditLog := audit.NewStore(conn)
+	if err := dispatch(ctx, conn, store, tokens, webAdmins, auditLog, args); err != nil {
+		return err
+	}
+	auditCLI(ctx, auditLog, args)
+	return nil
+}
+
+func dispatch(ctx context.Context, conn *sql.DB, store *mailbox.Store, tokens *authtoken.Store, webAdmins *adminauth.Store, auditLog *audit.Store, args []string) error {
 	group, rest := args[0], args[1:]
 	switch group {
 	case "domain":
@@ -106,6 +137,10 @@ func run(args []string) error {
 		return cmdMailbox(ctx, store, rest)
 	case "alias":
 		return cmdAlias(ctx, store, rest)
+	case "group":
+		return cmdGroup(ctx, store, rest)
+	case "audit":
+		return cmdAudit(ctx, auditLog, rest)
 	case "dkim":
 		return cmdDKIM(rest)
 	case "dns":
@@ -117,7 +152,7 @@ func run(args []string) error {
 	case "status":
 		return cmdStatus()
 	case "api":
-		return cmdAPI(ctx, tokens, rest)
+		return cmdAPI(ctx, tokens, domainkey.NewStore(conn), rest)
 	case "webadmin":
 		return cmdWebAdmin(ctx, webAdmins, rest)
 	case "-h", "--help":
@@ -196,6 +231,8 @@ func cmdDomain(ctx context.Context, store *mailbox.Store, args []string) error {
 		}
 		ok("Domain added: %s", name)
 		return nil
+	case "catchall":
+		return cmdDomainCatchAll(ctx, store, rest)
 	case "list":
 		list, err := store.DomainList(ctx)
 		if err != nil {
@@ -234,7 +271,7 @@ func cmdDomain(ctx context.Context, store *mailbox.Store, args []string) error {
 
 func cmdMailbox(ctx context.Context, store *mailbox.Store, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: patrabahok mailbox <add|list|remove|passwd> ...")
+		return errors.New("usage: patrabahok mailbox <add|list|remove|passwd|quota|name|enable|disable> ...")
 	}
 	action, rest := args[0], args[1:]
 	switch action {
@@ -281,7 +318,7 @@ func cmdMailbox(ctx context.Context, store *mailbox.Store, args []string) error 
 			return err
 		}
 		for _, m := range list {
-			fmt.Printf("%s\tenabled=%v\tquota_bytes=%d\n", m.Email, m.Enabled, m.QuotaBytes)
+			fmt.Printf("%s\tenabled=%v\tquota_bytes=%d\tname=%q\n", m.Email, m.Enabled, m.QuotaBytes, m.DisplayName)
 		}
 		return nil
 	case "remove":
@@ -342,6 +379,29 @@ func cmdMailbox(ctx context.Context, store *mailbox.Store, args []string) error 
 			return err
 		}
 		ok("Quota for %s set to %d bytes", email, quotaBytes)
+		return nil
+	case "name":
+		email, err := arg(rest, 0, "user@domain")
+		if err != nil {
+			return err
+		}
+		name := strings.TrimSpace(strings.Join(rest[1:], " "))
+		if err := store.MailboxSetName(ctx, email, name); err != nil {
+			return err
+		}
+		ok("Name for %s set to %q", email, name)
+		return nil
+	case "forward":
+		return cmdMailboxForward(ctx, store, rest)
+	case "enable", "disable":
+		email, err := arg(rest, 0, "user@domain")
+		if err != nil {
+			return err
+		}
+		if err := store.MailboxSetEnabled(ctx, email, action == "enable"); err != nil {
+			return err
+		}
+		ok("Mailbox %sd: %s", action, email)
 		return nil
 	default:
 		return fmt.Errorf("unknown mailbox action: %s", action)
@@ -476,9 +536,12 @@ func cmdStatus() error {
 	return enc.Encode(st)
 }
 
-func cmdAPI(ctx context.Context, tokens *authtoken.Store, args []string) error {
+func cmdAPI(ctx context.Context, tokens *authtoken.Store, keys *domainkey.Store, args []string) error {
+	if len(args) >= 1 && args[0] == "key" {
+		return cmdAPIKey(ctx, keys, args[1:])
+	}
 	if len(args) < 1 || args[0] != "token" {
-		return errors.New("usage: patrabahok api token <create|list|revoke> ...")
+		return errors.New("usage: patrabahok api <token|key> ...")
 	}
 	rest := args[1:]
 	if len(rest) == 0 {
@@ -530,6 +593,53 @@ func cmdAPI(ctx context.Context, tokens *authtoken.Store, args []string) error {
 		return nil
 	default:
 		return fmt.Errorf("unknown api token action: %s", action)
+	}
+}
+
+func cmdAPIKey(ctx context.Context, keys *domainkey.Store, args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: patrabahok api key <generate|list|revoke> ...")
+	}
+	action, rest := args[0], args[1:]
+	switch action {
+	case "generate":
+		domain, err := arg(rest, 0, "domain")
+		if err != nil {
+			return err
+		}
+		plaintext, err := keys.Generate(ctx, strings.ToLower(domain))
+		if err != nil {
+			return err
+		}
+		fmt.Println(plaintext)
+		fmt.Fprintf(os.Stderr, "^ API key for %s, shown once. Store it now; any previous key for this domain no longer works.\n", domain)
+		return nil
+	case "list":
+		list, err := keys.List(ctx)
+		if err != nil {
+			return err
+		}
+		for _, k := range list {
+			last := "never"
+			if k.LastUsedAt != nil {
+				last = k.LastUsedAt.Format("2006-01-02T15:04:05Z")
+			}
+			fmt.Printf("%s\tkey=...%s\tcreated=%s\tlast_used=%s\n",
+				k.Domain, k.Hint, k.CreatedAt.Format("2006-01-02T15:04:05Z"), last)
+		}
+		return nil
+	case "revoke":
+		domain, err := arg(rest, 0, "domain")
+		if err != nil {
+			return err
+		}
+		if err := keys.Revoke(ctx, strings.ToLower(domain)); err != nil {
+			return err
+		}
+		ok("API key revoked for %s", domain)
+		return nil
+	default:
+		return fmt.Errorf("unknown api key action: %s", action)
 	}
 }
 

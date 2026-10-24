@@ -9,6 +9,8 @@ PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 
 . "$PATRABAHOK_HOME/lib/core/secrets.sh"
 # shellcheck source=../core/template.sh
 . "$PATRABAHOK_HOME/lib/core/template.sh"
+# shellcheck source=../core/mailrouting.sh
+. "$PATRABAHOK_HOME/lib/core/mailrouting.sh"
 state_init
 secrets_load
 
@@ -120,14 +122,11 @@ phase_run() {
     /etc/postfix/mysql-virtual-mailbox-maps.cf \
     "DB_READONLY_USER=${db_readonly_user}" "DB_READONLY_PASSWORD=${MAIL_DB_READONLY_PASSWORD}" "DB_NAME=${db_name}"
 
-  render_template "$PATRABAHOK_HOME/templates/postfix/mysql-virtual-alias-maps.cf.tmpl" \
-    /etc/postfix/mysql-virtual-alias-maps.cf \
-    "DB_READONLY_USER=${db_readonly_user}" "DB_READONLY_PASSWORD=${MAIL_DB_READONLY_PASSWORD}" "DB_NAME=${db_name}"
-
   chown root:postfix /etc/postfix/mysql-virtual-*.cf
   chmod 640 /etc/postfix/mysql-virtual-*.cf
 
   configure_master_cf
+  apply_mail_routing
 
   [ -f /etc/aliases ] || echo "postmaster: root" > /etc/aliases
   newaliases 2>/dev/null || true

@@ -1,8 +1,11 @@
-// patrabahokd runs two independent listeners against the same database:
+// patrabahokd runs four independent listeners against the same database:
 //   - the JSON API, bearer-token authenticated, over a Unix domain socket by default
 //     (TCP only via explicit opt-in) — for local automation/integration.
 //   - the admin web dashboard, session-cookie authenticated, over HTTPS on its own
 //     TCP port — for humans, reusing the mail server's own Let's Encrypt certificate.
+//   - a loopback Postfix policy service enforcing group posting policies (internal/policy).
+//   - the public HTTPS listener on :443 (internal/frontdoor): MTA-STS policy files, the
+//     per-domain public API (domain API keys), and a reverse proxy to the webmail.
 package main
 
 import (
@@ -17,7 +20,9 @@ import (
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/api"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/db"
-	"github.com/itsrifathridoy/patrabahok/cli/internal/mtasts"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/frontdoor"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/policy"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/publicapi"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/webui"
 )
 
@@ -28,7 +33,10 @@ func main() {
 	webAddr := flag.String("web-addr", ":8443", "address for the admin web dashboard to listen on")
 	webCert := flag.String("web-cert", "", "TLS certificate (fullchain) for the admin web dashboard; dashboard disabled if empty")
 	webKey := flag.String("web-key", "", "TLS private key for the admin web dashboard")
-	mtastsAddr := flag.String("mtasts-addr", "", "address to serve MTA-STS policy files (/.well-known/mta-sts.txt) on, e.g. :443; disabled if empty")
+	httpsAddr := flag.String("https-addr", "", "address for the public HTTPS listener (MTA-STS, public per-domain API, webmail proxy), e.g. :443; disabled if empty")
+	mtastsAddr := flag.String("mtasts-addr", "", "deprecated alias for -https-addr")
+	policyAddr := flag.String("policy-addr", "", "loopback address for the Postfix policy service that enforces group posting policies, e.g. 127.0.0.1:10040; disabled if empty")
+	webmailUpstream := flag.String("webmail-upstream", "", "loopback URL of the webmail backend to proxy on the public listener, e.g. http://127.0.0.1:8081; no webmail if empty")
 	flag.Parse()
 
 	conn, err := db.Open(*dbConfig)
@@ -79,14 +87,33 @@ func main() {
 		log.Printf("patrabahokd: admin web dashboard disabled (no -web-cert/-web-key given)")
 	}
 
-	if *mtastsAddr != "" {
+	if *policyAddr != "" {
 		go func() {
-			// Deliberately non-fatal, unlike the API/dashboard listeners above: MTA-STS
-			// hosting is opt-in per domain and secondary to core mail service, so a
-			// problem binding its port (already open in ufw, but conceivably taken by
-			// something else) shouldn't take down the management API and dashboard with it.
-			if err := mtasts.ListenAndServeTLS(*mtastsAddr); err != nil {
-				log.Printf("patrabahokd: mtasts serve: %v (MTA-STS policy hosting disabled)", err)
+			// Fatal: Postfix is configured to consult this service, and while it is down
+			// every message to a group is deferred. Exiting lets systemd restart us.
+			if err := policy.New(conn).ListenAndServe(*policyAddr); err != nil {
+				log.Fatalf("patrabahokd: policy service: %v", err)
+			}
+		}()
+	}
+
+	if *httpsAddr == "" {
+		*httpsAddr = *mtastsAddr
+	}
+	if *httpsAddr != "" {
+		cfg := frontdoor.Config{Addr: *httpsAddr, WebmailUpstream: *webmailUpstream}
+		if *webCert != "" && *webKey != "" {
+			cfg.HostCert = webui.CertSource(*webCert, *webKey)
+			cfg.API = publicapi.New(conn)
+		} else {
+			log.Printf("patrabahokd: public API and webmail disabled on %s (no -web-cert/-web-key given)", *httpsAddr)
+		}
+		go func() {
+			// Deliberately non-fatal, unlike the API/dashboard listeners above: a problem
+			// binding :443 (open in ufw, but conceivably taken by something else) shouldn't
+			// take down the management API and dashboard with it.
+			if err := frontdoor.ListenAndServeTLS(cfg); err != nil {
+				log.Printf("patrabahokd: public https serve: %v (MTA-STS, public API and webmail unavailable)", err)
 			}
 		}()
 	}

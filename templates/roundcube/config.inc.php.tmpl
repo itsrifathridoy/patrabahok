@@ -1,0 +1,37 @@
+<?php
+// Rendered by lib/phases/90-webmail.sh. Local edits are overwritten on the next run of that phase.
+
+$config['db_dsnw'] = 'mysql://roundcube:{{DB_PASSWORD}}@localhost/roundcube';
+
+// Connect over loopback and still verify the certificate against the mail hostname it
+// was issued for. Going to the public hostname would fail on cloud hosts whose public IP
+// sits behind NAT (no hairpin routing back to the box).
+$config['imap_host'] = 'ssl://127.0.0.1:993';
+$config['imap_conn_options'] = [
+    'ssl' => ['verify_peer' => true, 'verify_peer_name' => true, 'peer_name' => '{{MAIL_HOSTNAME}}'],
+];
+$config['smtp_host'] = 'tls://127.0.0.1:587';
+$config['smtp_conn_options'] = [
+    'ssl' => ['verify_peer' => true, 'verify_peer_name' => true, 'peer_name' => '{{MAIL_HOSTNAME}}'],
+];
+$config['smtp_user'] = '%u';
+$config['smtp_pass'] = '%p';
+
+// Users log in with their full address (student1@example.com), so any hosted domain works.
+$config['username_domain'] = '';
+$config['login_lc'] = 2;
+
+// patrabahokd terminates TLS on :443 and proxies here over loopback; nginx restores the
+// real client IP into REMOTE_ADDR (templates/nginx/roundcube.conf.tmpl).
+$config['use_https'] = true;
+
+$config['des_key'] = '{{DES_KEY}}';
+$config['product_name'] = '{{PRODUCT_NAME}}';
+$config['skin'] = 'elastic';
+$config['enable_installer'] = false;
+$config['log_dir'] = '/var/log/roundcube/';
+$config['temp_dir'] = '/var/lib/roundcube/temp/';
+$config['mime_types'] = '/etc/mime.types';
+$config['max_message_size'] = '25M';
+
+$config['plugins'] = ['archive', 'zipdownload', 'password'];

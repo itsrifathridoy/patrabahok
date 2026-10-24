@@ -1,0 +1,44 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-orange">{{icon "history"}}</div>
+  <div>
+    <h1>Audit log</h1>
+    <p class="subtitle">Every change to users, groups, domains and access: who made it, when, and from where. Passwords are never recorded.</p>
+  </div>
+</div>
+
+<div class="card flush" id="audit-table">
+  <form class="table-toolbar" method="get" action="/audit"
+        hx-get="/audit" hx-target="#audit-table" hx-select="#audit-table" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q]">
+    <div class="search">{{icon "search"}}<input type="search" name="q" value="{{.Query}}" placeholder="Filter by person, action or address" aria-label="Filter audit log"></div>
+  </form>
+  {{if .Entries}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Details</th><th>From</th></tr></thead>
+      <tbody>
+        {{range .Entries}}
+        <tr>
+          <td class="nowrap" title="{{.At.Format "2006-01-02 15:04:05 MST"}}"><div class="fw-600">{{.At.Format "Jan 2, 15:04"}}</div><div class="text-sm text-muted">{{timeAgo .At}}</div></td>
+          <td class="nowrap">
+            <div class="entity">
+              <span class="avatar sm {{avatarClass .Actor}}">{{if eq .ActorKind "cli"}}{{icon "code"}}{{else if eq .ActorKind "apikey"}}{{icon "key"}}{{else if eq .ActorKind "token"}}{{icon "key"}}{{else}}{{initials .ActorLabel}}{{end}}</span>
+              <div class="entity-text"><div class="entity-title">{{.ActorLabel}}</div><div class="entity-sub">{{if eq .ActorKind "admin"}}Administrator{{else if eq .ActorKind "cli"}}Command line{{else if eq .ActorKind "apikey"}}Domain API key{{else if eq .ActorKind "token"}}API token{{else}}{{.ActorKind}}{{end}}</div></div>
+            </div>
+          </td>
+          <td><span class="badge badge-{{auditTone .Action}}">{{icon (auditIcon .Action)}} {{.Verb}}</span></td>
+          <td class="mono">{{.Target}}</td>
+          <td class="text-sm">{{.Detail}}</td>
+          <td class="mono text-muted">{{.IP}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{template "pager" .Pager}}
+  {{else}}
+  {{template "empty-state" (dict "icon" "history" "title" "Nothing recorded yet" "text" "Changes made from this dashboard, the CLI and the APIs will appear here.")}}
+  {{end}}
+</div>
+{{end}}

@@ -1,48 +1,32 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-amber">{{template "icon-users"}}</div>
+  <div class="page-header-icon tone-orange">{{icon "lock"}}</div>
   <div>
-    <h1>Admins</h1>
-    <p class="subtitle">Accounts that can sign in to this dashboard.</p>
+    <h1>Administrators</h1>
+    <p class="subtitle">People who can sign in to this dashboard. Each has full access, and every change they make is recorded in the audit log.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-open="new-admin">{{icon "user-plus"}} Add administrator</button>
   </div>
 </div>
 
-<div class="card">
-  <h2>Add an admin</h2>
-  <form hx-post="/admins" hx-target="#admins-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
-    <div class="form-row">
-      <div class="field">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required minlength="8">
-      </div>
-      <button type="submit" class="btn btn-primary">{{template "icon-users"}} Add admin</button>
-    </div>
-  </form>
-</div>
-
-<div class="card">
-  {{template "admins_table" .}}
-</div>
-{{end}}
-
-{{define "admins_table"}}
-<div id="admins-table">
+<div class="card flush">
   <table>
-    <thead><tr><th>Username</th><th></th></tr></thead>
+    <thead><tr><th>Administrator</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
     <tbody>
       {{range .Admins}}
       <tr>
-        <td class="mono">{{.Username}}{{if eq .Username $.CurrentUser}} <span class="badge badge-muted">you</span>{{end}}</td>
-        <td style="text-align:right;">
+        <td>
+          <div class="entity">
+            <span class="avatar {{avatarClass .Username}}">{{initials .Username}}</span>
+            <div class="entity-text"><div class="entity-title">{{.Username}}{{if eq .Username $.CurrentUser}} <span class="badge badge-blue">You</span>{{end}}</div><div class="entity-sub">Full access</div></div>
+          </div>
+        </td>
+        <td class="actions">
           {{if ne .Username $.CurrentUser}}
-          <button class="btn btn-sm btn-danger"
-            hx-delete="/admins/{{.Username}}"
-            hx-target="#admins-table" hx-swap="outerHTML"
-            hx-confirm="Remove admin {{.Username}}?">Remove</button>
+          <button class="btn btn-ghost btn-sm" hx-delete="/admins/{{.Username}}" hx-confirm="Remove administrator {{.Username}}? They'll be signed out and can't sign in again.">{{icon "trash"}} Remove</button>
+          {{else}}
+          <a class="btn btn-ghost btn-sm" href="/settings">Change password</a>
           {{end}}
         </td>
       </tr>
@@ -50,4 +34,40 @@
     </tbody>
   </table>
 </div>
+
+<div class="card">
+  <h2>Security notes</h2>
+  <ul class="steps text-sm" style="list-style:disc;">
+    <li>Repeated failed sign-ins are banned at the firewall by fail2ban.</li>
+    <li>Sessions are HTTP-only, secure cookies and are revoked at sign-out.</li>
+    <li>From the server's shell you can also manage administrators with <code>patrabahok webadmin add|list|remove</code>.</li>
+  </ul>
+</div>
+
+<dialog class="modal" id="new-admin" aria-labelledby="nad-title">
+  <form hx-post="/admins">
+    <div class="modal-header">
+      <span class="stat-icon tone-orange">{{icon "user-plus"}}</span>
+      <div><h2 id="nad-title">Add an administrator</h2><p>They'll have full access to this dashboard.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="nad-user">Username</label>
+        <input id="nad-user" name="username" type="text" required autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="nad-pass">Password</label>
+        <div class="input-group">
+          <input id="nad-pass" name="password" type="password" required minlength="8" autocomplete="new-password">
+          <button type="button" class="btn" data-generate-password="nad-pass">{{icon "refresh"}} Generate</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add administrator</button>
+    </div>
+  </form>
+</dialog>
 {{end}}

@@ -1,67 +1,89 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-violet">{{template "icon-key"}}</div>
+  <div class="page-header-icon tone-purple">{{icon "key"}}</div>
   <div>
-    <h1>API Tokens</h1>
-    <p class="subtitle">Bearer tokens for <code>patrabahokd</code>'s JSON API. Scopes: <code>domain</code>, <code>mailbox</code>, <code>alias</code>, <code>dkim</code>, <code>dns</code>, <code>queue</code>, <code>status</code>, or <code>*</code> for all.</p>
+    <h1>API access</h1>
+    <p class="subtitle">Credentials for automating this server: local API tokens here, and per-domain public API keys on each domain's page.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-open="new-token">{{icon "plus"}} Create token</button>
   </div>
 </div>
 
-<div class="card">
-  <h2>Create a token</h2>
-  <form hx-post="/tokens" hx-target="#tokens-body" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
-    <div class="form-row">
-      <div class="field">
-        <label for="name">Name</label>
-        <input type="text" id="name" name="name" placeholder="ci-pipeline" required>
-      </div>
-      <div class="field">
-        <label for="scopes">Scopes (comma-separated, default *)</label>
-        <input type="text" id="scopes" name="scopes" placeholder="domain,mailbox">
-      </div>
-      <button type="submit" class="btn btn-primary">{{template "icon-key"}} Create token</button>
-    </div>
-  </form>
+<div class="grid grid-2" style="margin-bottom:18px;">
+  <div class="card">
+    <div class="flex items-center gap-3 mb-4"><span class="stat-icon tone-purple">{{icon "server"}}</span><div><h3 class="mb-0">Local API tokens</h3><div class="text-sm text-muted">Server-wide, over the <code>/run/patrabahok/api.sock</code> Unix socket</div></div></div>
+    <p class="text-sm text-muted mb-0">For scripts running on this server. Scopes limit what each token can do: <code>domain</code>, <code>mailbox</code>, <code>alias</code>, <code>group</code>, <code>dkim</code>, <code>dns</code>, <code>queue</code>, <code>status</code>, or <code>*</code> for everything.</p>
+  </div>
+  <a class="card" href="/domains" style="display:block;color:inherit;text-decoration:none;">
+    <div class="flex items-center gap-3 mb-4"><span class="stat-icon tone-green">{{icon "globe"}}</span><div><h3 class="mb-0">Public API keys {{icon "arrow-right"}}</h3><div class="text-sm text-muted">One per domain, over HTTPS at <code>/api/&lt;domain&gt;/</code></div></div></div>
+    <p class="text-sm text-muted mb-0">For external systems, such as a school's student-information system, that create and manage a single domain's users and groups. Manage them on each domain's page.</p>
+  </a>
 </div>
 
 {{template "tokens_body" .}}
+
+<dialog class="modal" id="new-token" aria-labelledby="nt-title">
+  <form hx-post="/tokens" hx-target="#tokens-body" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful){this.reset();this.closest('dialog').close()}">
+    <div class="modal-header">
+      <span class="stat-icon tone-purple">{{icon "key"}}</span>
+      <div><h2 id="nt-title">Create an API token</h2><p>The token is shown once, right after you create it.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="nt-name">Name</label>
+        <input type="text" id="nt-name" name="name" placeholder="backup-script" required>
+      </div>
+      <div class="field">
+        <label for="nt-scopes">Scopes</label>
+        <input type="text" id="nt-scopes" name="scopes" placeholder="mailbox,group (empty for all)">
+        <div class="help">Comma-separated. Leave empty for full access.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Create token</button>
+    </div>
+  </form>
+</dialog>
 {{end}}
 
 {{define "tokens_body"}}
 <div id="tokens-body">
   {{if .NewToken}}
   <div class="flash flash-success">
-    Token created — copy it now, it won't be shown again:
-    <pre class="dns-record" style="margin-top:8px;">{{.NewToken}}</pre>
+    <strong>Token created. Copy it now</strong>, it won't be shown again:
+    <div class="secret-reveal">
+      <pre class="dns-record">{{.NewToken}}</pre>
+      <button type="button" class="btn" data-copy="{{.NewToken}}">{{icon "copy"}} <span class="copy-label-text">Copy</span></button>
+    </div>
   </div>
   {{end}}
-  {{if .NewTokenErr}}
-  <div class="flash flash-error">{{.NewTokenErr}}</div>
-  {{end}}
+  {{if .NewTokenErr}}<div class="flash flash-error">{{.NewTokenErr}}</div>{{end}}
 
-  <div class="card">
+  <div class="card flush">
     {{if .Tokens}}
     <table>
-      <thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last used</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last used</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
       <tbody>
         {{range .Tokens}}
         <tr>
-          <td class="mono">{{.Name}}</td>
+          <td><div class="entity"><span class="avatar sm sq tone-purple">{{icon "key"}}</span><span class="fw-600">{{.Name}}</span></div></td>
           <td>{{range .Scopes}}<span class="badge badge-muted">{{.}}</span> {{end}}</td>
-          <td class="text-muted">{{.CreatedAt.Format "2006-01-02"}}</td>
-          <td class="text-muted">{{if .LastUsedAt}}{{.LastUsedAt.Format "2006-01-02 15:04"}}{{else}}never{{end}}</td>
-          <td style="text-align:right;">
-            <button class="btn btn-sm btn-danger"
-              hx-delete="/tokens/{{.Name}}"
-              hx-target="#tokens-body" hx-swap="outerHTML"
-              hx-confirm="Revoke token {{.Name}}? Anything using it will stop working immediately.">Revoke</button>
+          <td class="text-muted">{{.CreatedAt.Format "Jan 2, 2006"}}</td>
+          <td class="text-muted">{{if .LastUsedAt}}{{timeAgo .LastUsedAt}}{{else}}Never{{end}}</td>
+          <td class="actions">
+            <button class="btn btn-ghost btn-sm"
+              hx-delete="/tokens/{{.Name}}" hx-target="#tokens-body" hx-swap="outerHTML"
+              hx-confirm="Revoke the token {{.Name}}? Anything using it stops working immediately.">{{icon "trash"}} Revoke</button>
           </td>
         </tr>
         {{end}}
       </tbody>
     </table>
     {{else}}
-    <div class="empty">No API tokens yet. Create one above.</div>
+    {{template "empty-state" (dict "icon" "key" "title" "No API tokens" "text" "Create a token to automate this server from scripts.")}}
     {{end}}
   </div>
 </div>

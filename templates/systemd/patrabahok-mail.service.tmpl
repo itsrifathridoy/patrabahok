@@ -10,11 +10,12 @@ EnvironmentFile=/opt/patrabahok-mail/.env
 ExecStart={{NODE_BIN}} server.js
 Restart=on-failure
 RestartSec=2
-# Same as patrabahokd (cli/internal/webui): needs to read the mail server's own
-# Let's Encrypt private key, which is root-only — running as a dedicated unprivileged
-# user would need ACL workarounds for that single file for no real security gain here,
-# since ProtectSystem=strict/NoNewPrivileges/ReadWritePaths already scope what this
-# process can *write* regardless of which user it runs as.
+# Runs as root because it reads its encryption keys from the root-only (0600)
+# /etc/patrabahok/secrets.env, and in standalone-HTTPS mode the Let's Encrypt private key.
+# Running as an unprivileged user would need ACL workarounds for those files for no real
+# security gain here, since ProtectSystem=strict/NoNewPrivileges/ReadWritePaths already
+# scope what this process can *write* regardless of which user it runs as. The installer
+# deploys it in loopback-HTTP mode behind patrabahokd (LISTEN_HOST in .env).
 User=root
 NoNewPrivileges=yes
 ProtectSystem=strict

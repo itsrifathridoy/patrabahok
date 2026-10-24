@@ -1,0 +1,90 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-blue">{{icon "upload"}}</div>
+  <div>
+    <h1>Import users</h1>
+    <p class="subtitle">Create up to 1,000 users at once from a spreadsheet, e.g. a whole class.</p>
+  </div>
+  <div class="page-actions"><a class="btn" href="/users">{{icon "chevron-left"}} Back to users</a></div>
+</div>
+
+{{if .Results}}
+<div class="stat-grid stat-grid-3">
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Rows processed</div><div class="stat-value">{{len .Results}}</div></div><span class="stat-icon tone-blue">{{icon "file"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Created</div><div class="stat-value">{{.CreatedCount}}</div></div><span class="stat-icon tone-green">{{icon "check-circle"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Failed</div><div class="stat-value">{{.FailedCount}}</div></div><span class="stat-icon tone-red">{{icon "alert"}}</span></div></div>
+</div>
+
+{{if .CreatedCount}}
+<div class="flash flash-warn">
+  <strong>Download the credentials now.</strong> This is the only time the passwords are shown. The file has every created user's address and password, ready to hand out.
+  <div class="mt-2">
+    <textarea id="import-creds" hidden>{{.CredentialsCSV}}</textarea>
+    <button type="button" class="btn btn-primary btn-sm" data-download="import-creds" data-filename="new-users.csv">{{icon "download"}} Download credentials CSV</button>
+  </div>
+</div>
+{{end}}
+
+<div class="card flush">
+  <div class="card-header"><h2>Results</h2></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Address</th><th>Name</th><th>Result</th></tr></thead>
+      <tbody>
+        {{range .Results}}
+        <tr>
+          <td class="mono">{{if .Created}}<a href="/users/{{pathEscape .Email}}">{{.Email}}</a>{{else}}{{.Email}}{{end}}</td>
+          <td>{{.Name}}</td>
+          <td>{{if .Created}}<span class="badge badge-green">{{icon "check"}} Created</span>{{else}}<span class="badge badge-red">Failed</span> <span class="text-sm text-muted">{{.Error}}</span>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
+<div class="grid grid-main-side">
+  <form class="card flush" hx-post="/users/import" hx-encoding="multipart/form-data" hx-target="#main" hx-select="#main" hx-swap="outerHTML">
+    <div class="card-header"><div><h2>{{if .Results}}Import more{{else}}Upload a CSV{{end}}</h2><div class="hint">Upload a file or paste rows below.</div></div></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="field">
+          <label for="imp-domain">Default domain</label>
+          <select id="imp-domain" name="domain">{{range .Domains}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select>
+          <div class="help">Used for rows that have a bare username.</div>
+        </div>
+        <div class="field">
+          <label for="imp-quota">Default storage limit</label>
+          <select id="imp-quota" name="quota">{{range .QuotaChoices}}<option value="{{.}}" {{if eq . "1G"}}selected{{end}}>{{.}}B</option>{{end}}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="imp-file">CSV file</label>
+        <input id="imp-file" type="file" name="file" accept=".csv,text/csv,text/plain">
+      </div>
+      <div class="field">
+        <label for="imp-csv">…or paste rows</label>
+        <textarea id="imp-csv" name="csv" class="mono" rows="8" placeholder="email,name,password,quota&#10;student1,Student One&#10;student2@school.edu,Student Two,Initial-Pass-22,2G"></textarea>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="htmx-indicator text-muted" style="margin-right:auto;align-self:center;">Creating users… this can take a minute for large files.</span>
+      <button type="submit" class="btn btn-primary">{{icon "upload"}} Import users</button>
+    </div>
+  </form>
+
+  <div class="card">
+    <h2>File format</h2>
+    <p class="text-sm text-muted">One user per row. Columns, in order:</p>
+    <dl class="kv text-sm">
+      <dt><code>email</code></dt><dd>Full address, or a username to use the default domain. Required.</dd>
+      <dt><code>name</code></dt><dd>Full name. Optional.</dd>
+      <dt><code>password</code></dt><dd>Optional, at least 8 characters. Left empty, a strong one is generated.</dd>
+      <dt><code>quota</code></dt><dd>Optional, e.g. <code>500M</code> or <code>2G</code>.</dd>
+    </dl>
+    <hr>
+    <p class="text-sm text-muted mb-0">A header row is detected and skipped. Existing addresses are reported and left unchanged. Each row is created independently, so one bad row doesn't stop the rest.</p>
+  </div>
+</div>
+{{end}}

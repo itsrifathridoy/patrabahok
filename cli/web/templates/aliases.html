@@ -1,56 +1,80 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-violet">{{template "icon-forward"}}</div>
+  <div class="page-header-icon tone-blue">{{icon "at"}}</div>
   <div>
     <h1>Aliases</h1>
-    <p class="subtitle">Forward mail from one address to another.</p>
+    <p class="subtitle">Extra addresses that deliver to an existing mailbox or forward elsewhere, like <span class="mono">info@</span> or <span class="mono">admissions@</span>.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-open="new-alias" {{if not .Domains}}disabled{{end}}>{{icon "plus"}} Add alias</button>
   </div>
 </div>
 
-<div class="card">
-  <h2>Add an alias</h2>
-  <form hx-post="/aliases" hx-target="#aliases-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
-    <div class="form-row">
-      <div class="field">
-        <label for="source">From (alias)</label>
-        <input type="text" id="source" name="source" placeholder="sales@example.com" required>
-      </div>
-      <div class="field">
-        <label for="destination">To (target)</label>
-        <input type="text" id="destination" name="destination" placeholder="you@example.com" required>
-      </div>
-      <button type="submit" class="btn btn-primary">{{template "icon-forward"}} Add alias</button>
-    </div>
+<div class="card flush" id="aliases-table">
+  <form class="table-toolbar" method="get" action="/aliases"
+        hx-get="/aliases" hx-target="#aliases-table" hx-select="#aliases-table" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change">
+    <div class="search">{{icon "search"}}<input type="search" name="q" value="{{.Query}}" placeholder="Search aliases" aria-label="Search aliases"></div>
+    <select name="domain" aria-label="Domain">
+      <option value="">All domains</option>
+      {{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
   </form>
-</div>
-
-<div class="card">
-  {{template "aliases_table" .}}
-</div>
-{{end}}
-
-{{define "aliases_table"}}
-<div id="aliases-table">
   {{if .Aliases}}
-  <table>
-    <thead><tr><th>From</th><th>To</th><th></th></tr></thead>
-    <tbody>
-      {{range .Aliases}}
-      <tr>
-        <td class="mono">{{.Source}}</td>
-        <td class="mono">{{.Destination}}</td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-danger"
-            hx-delete="/aliases?source={{.Source}}&destination={{.Destination}}"
-            hx-target="#aliases-table" hx-swap="outerHTML"
-            hx-confirm="Delete this alias?">Delete</button>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Alias</th><th></th><th>Delivers to</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Aliases}}
+        <tr>
+          <td><div class="entity"><span class="avatar sm sq tone-blue">{{icon "at"}}</span><span class="mono">{{.Source}}</span></div></td>
+          <td class="text-muted" style="width:32px;">{{icon "arrow-right"}}</td>
+          <td class="mono">{{.Destination}}</td>
+          <td class="actions">
+            <button class="btn btn-ghost btn-sm"
+              hx-delete="/aliases?source={{.Source}}&destination={{.Destination}}"
+              hx-confirm="Remove the alias {{.Source}} → {{.Destination}}?">{{icon "x"}} Remove</button>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else if or .Query .Domain}}
+  {{template "empty-state" (dict "icon" "search" "title" "No aliases match" "text" "Try a different search, or clear the filter.")}}
   {{else}}
-  <div class="empty">No aliases yet.</div>
+  {{template "empty-state" (dict "icon" "at" "title" "No aliases yet" "text" "Aliases give a mailbox extra addresses. To deliver one address to many people, create a group instead.")}}
   {{end}}
 </div>
+
+{{if .Domains}}
+<dialog class="modal" id="new-alias" aria-labelledby="na-title">
+  <form hx-post="/aliases">
+    <div class="modal-header">
+      <span class="stat-icon tone-blue">{{icon "at"}}</span>
+      <div><h2 id="na-title">Add an alias</h2><p>Mail to the alias is delivered to the destination address.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="na-local">Alias address</label>
+        <div class="input-group">
+          <input id="na-local" name="local" type="text" required placeholder="info">
+          <span class="addon">@</span>
+          <select name="domain" aria-label="Domain">{{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="na-dest">Delivers to</label>
+        <input id="na-dest" name="destination" type="email" required placeholder="principal@school.edu">
+        <div class="help">Any address. Add the alias again with another destination to deliver to several.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add alias</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
 {{end}}

@@ -165,6 +165,7 @@ func (s *Server) handleCloudflareCallback(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleCloudflareDisconnect(w http.ResponseWriter, r *http.Request) {
+	s.record(r, "cloudflare.disconnect", "", "")
 	if err := s.cloudflare.Clear(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

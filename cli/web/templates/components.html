@@ -1,0 +1,86 @@
+{{/* Shared partials, available to every page. */}}
+
+{{/* empty-state: dict "icon" "title" "text" */}}
+{{define "empty-state"}}
+<div class="empty-state">
+  <div class="empty-icon">{{icon .icon}}</div>
+  <h3>{{.title}}</h3>
+  {{with .text}}<p>{{.}}</p>{{end}}
+</div>
+{{end}}
+
+{{/* pager: a Pager */}}
+{{define "pager"}}
+{{if gt .Total 0}}
+<div class="table-footer">
+  <span>Showing <strong>{{.From}}–{{.To}}</strong> of <strong>{{.Total}}</strong></span>
+  {{if or .HasPrev .HasNext}}
+  <div class="pager">
+    {{if .HasPrev}}<a class="btn btn-sm" href="{{.PrevURL}}">{{icon "chevron-left"}} Previous</a>{{else}}<span class="btn btn-sm" aria-disabled="true">{{icon "chevron-left"}} Previous</span>{{end}}
+    {{if .HasNext}}<a class="btn btn-sm" href="{{.NextURL}}">Next {{icon "chevron-right"}}</a>{{else}}<span class="btn btn-sm" aria-disabled="true">Next {{icon "chevron-right"}}</span>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{/* user-cell: dict "email" "name" "href" */}}
+{{define "user-cell"}}
+<div class="entity">
+  <span class="avatar {{avatarClass .email}}">{{if .name}}{{initials .name}}{{else}}{{initials .email}}{{end}}</span>
+  <div class="entity-text">
+    {{if .href}}<a class="entity-title" href="{{.href}}">{{if .name}}{{.name}}{{else}}{{localPart .email}}{{end}}</a>{{else}}<div class="entity-title">{{if .name}}{{.name}}{{else}}{{localPart .email}}{{end}}</div>{{end}}
+    <div class="entity-sub">{{.email}}</div>
+  </div>
+</div>
+{{end}}
+
+{{/* status-badge: a bool (enabled) */}}
+{{define "status-badge"}}{{if .}}<span class="badge badge-green badge-dot">Active</span>{{else}}<span class="badge badge-red badge-dot">Suspended</span>{{end}}{{end}}
+
+{{/* usage: dict "used" "quota" (int64 bytes) */}}
+{{define "usage"}}
+{{$p := percent .used .quota}}
+<div class="usage">
+  <div class="usage-text">{{bytes .used}} of {{bytes .quota}}</div>
+  <div class="progress sm"><div class="progress-bar {{if ge $p 90}}danger{{else if ge $p 75}}warn{{end}}" style="width: {{$p}}%"></div></div>
+</div>
+{{end}}
+
+{{/* policy-badge: a post policy string */}}
+{{define "policy-badge"}}<span class="badge badge-{{policyTone .}}">{{policyLabel .}}</span>{{end}}
+
+{{/* activity-list: []AuditView */}}
+{{define "activity-list"}}
+{{if .}}
+<ul class="activity">
+  {{range .}}
+  <li>
+    <span class="a-icon tone-{{auditTone .Action}}">{{icon (auditIcon .Action)}}</span>
+    <div class="a-text">
+      <div><strong>{{.ActorDisplay}}</strong> <span class="text-muted">{{.Verb}}</span>{{with .Target}} <span class="mono">{{.}}</span>{{end}}</div>
+      <div class="a-meta">{{timeAgo .At}}{{with .Detail}} · {{.}}{{end}}</div>
+    </div>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+{{template "empty-state" (dict "icon" "history" "title" "No activity yet" "text" "Changes to users, groups and domains will show up here.")}}
+{{end}}
+{{end}}
+
+{{/* policy-choices: the currently selected policy */}}
+{{define "policy-choices"}}
+{{$sel := .}}
+<div class="field mb-0 mt-4">
+  <label>Who can post to this group</label>
+  <div class="choice-grid">
+    {{range policies}}
+    <label class="choice">
+      <input type="radio" name="post_policy" value="{{.}}" {{if eq . $sel}}checked{{end}}>
+      <span><span class="choice-title">{{policyLabel .}}</span><br><span class="choice-desc">{{policyDesc .}}</span></span>
+    </label>
+    {{end}}
+  </div>
+</div>
+{{end}}

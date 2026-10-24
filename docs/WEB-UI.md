@@ -39,35 +39,72 @@ other admins) from the **Admins** page or `patrabahok webadmin add/list/remove`.
 
 ## What it does
 
-- **Overview** — live counts (domains/mailboxes/aliases/tokens), which services are up, mail
-  queue state, and disk usage, all in one glance
-- **Domains** — add/remove domains; adding one shows a "Configure DNS & verify →" prompt straight
-  into DNS Analysis for that domain, plus a one-click "Auto-configure via Cloudflare" button right
-  there if a matching zone is found. Also where you connect Cloudflare in the first place — see
-  below.
-- **Mailboxes** — add/remove mailboxes, reset passwords, set quota at creation
-- **Aliases** — add/remove forwarding rules
-- **DNS analysis** — the step-by-step DNS records a domain needs (A/MX/SPF/DKIM/DMARC), plus a
-  **live verify**: it flushes the local resolver's cache for those exact names first (so a check
-  right after fixing DNS doesn't report a stale negative result) and then queries the server's own
-  resolver, comparing what's actually published against what this server expects — including
-  comparing the live DKIM TXT record against the key this server currently signs with, so a stale
-  record (e.g. after a reinstall regenerated the key) shows up as a clear "fail" instead of
-  silently breaking delivery. If the domain's zone is on a connected Cloudflare account, an
-  **"Auto-configure DNS via Cloudflare"** button creates/updates all the required records directly
-  via the Cloudflare API instead of copying them by hand.
-- **Mail queue** — view and flush Postfix's queue
-- **Diagnostics** — service status, `postfix check`/`doveconf -n`/`rspamadm configtest` output,
-  TLS certificate expiry, disk usage, recent mail-log errors/warnings/bounces, and current
-  fail2ban bans — everything you'd otherwise SSH in and check by hand
-- **API tokens** — create/revoke `patrabahokd` bearer tokens and set their scopes, without
-  touching the CLI
-- **Admins** — manage who can log into the dashboard
-- **Settings** — change your own password
+The navigation follows how an organization thinks about its mail, not how the server is built:
+
+- **Overview** — counts of users (and how many are suspended), groups, domains and total mail
+  storage, service health, quick actions, users per domain, disk and queue status, and recent
+  activity from the audit log
+- **Directory**
+  - **Users** — searchable, filterable list (by domain and status) with each user's storage use,
+    paginated for large schools. "Add user" generates a strong password on request. Each user has
+    a profile page with:
+    - name, storage use and limit
+    - password reset
+    - suspend and restore (blocks sign-in and delivery but keeps their mail)
+    - email forwarding, with or without keeping a copy
+    - alternate addresses (aliases)
+    - group memberships
+    - their recent audit history
+    - deletion
+  - **Import users** — create up to 1,000 users from a CSV (`email,name,password,quota`). Missing
+    passwords are generated, and the passwords are offered once as a downloadable credentials
+    file. Each row succeeds or fails on its own.
+  - **Groups** — distribution lists (see below)
+  - **Aliases** — extra addresses for a mailbox, filterable by domain
+- **Organization**
+  - **Domains** — every domain with its user, group and alias counts. Each domain page has its
+    public API key, catch-all address, connection settings to give users, Cloudflare one-click
+    DNS, and deletion (you have to type the domain name to confirm).
+  - **DNS & deliverability** — the records a domain needs (A/MX/SPF/DKIM/DMARC) and a **live
+    verify**. It flushes the local resolver's cache for those names first, so a check right after
+    fixing DNS isn't stale. It then compares what's published with what this server expects,
+    including the DKIM key it actually signs with, and offers Cloudflare auto-configure, DKIM
+    rotation and MTA-STS hosting.
+  - **Mail queue** — view and flush Postfix's queue
+- **Security**
+  - **Administrators** — who can sign in to the dashboard
+  - **Audit log** — every change from the dashboard, the CLI, local API tokens and domain API
+    keys: who made it, when, what it targeted, and the client IP. It's searchable, and passwords
+    are never recorded.
+  - **API access** — local API tokens, plus pointers to the per-domain public API keys
+- **System**
+  - **Diagnostics** — service status, `postfix check`/`doveconf -n`/`rspamadm configtest` output,
+    TLS expiry, disk use, recent mail-log problems, and current fail2ban bans
+  - **Settings** — change your own password
+
+The top bar has a global search across users, groups and domains (press <kbd>/</kbd>), which
+jumps straight to an exact address match. There's also a light/dark toggle (it follows the system
+by default) and the account menu. Every change shows a confirmation toast, destructive actions ask
+first in a styled dialog, and the layout collapses to a drawer menu on phones.
+
+### Groups
+
+A group is one address, say `class10@school.edu`, that delivers to every member. This is the
+Google Groups/Workspace model:
+
+- **Members** can be users, aliases, other groups (groups nest, so `everyone@` can contain
+  `teachers@` and `students@`), and, if the group allows it, external addresses such as parents'
+  Gmail accounts. Paste many addresses at once. Each one is validated on its own, and problems
+  are listed without losing the rest.
+- **Roles**: member or owner.
+- **Who can post**: anyone, anyone in the organization (signed in), members only, or owners only
+  (announcement lists). This is checked by `patrabahokd`'s Postfix policy service when the
+  message arrives, so a sender who isn't allowed gets an immediate SMTP error instead of a silent
+  drop. See [ARCHITECTURE.md](ARCHITECTURE.md#groups-forwarding-and-catch-all).
+- Suspended members are skipped automatically. An empty group rejects mail until it has a member.
 
 It's a thin UI over the same `cli/internal/mailbox`/`authtoken`/`diag`/`dnscheck` logic the CLI
-and JSON API use — every action here is equally available via `patrabahok` or `patrabahokd`'s
-`/v1/*` endpoints, so the dashboard has full CLI feature parity.
+and JSON APIs use, and every action is also available from `patrabahok` and the APIs.
 
 ## How it's built
 
@@ -77,6 +114,19 @@ interactivity (e.g. toggling a password-reset form). No Node.js build step, no n
 tree, no external CDN at runtime — both libraries are vendored under `cli/web/static/` and
 compiled directly into the `patrabahokd` binary via Go's `embed` package, so the deployed server
 has no separate files to keep in sync with the binary.
+
+The visual design is a small hand-written design system in `cli/web/static/style.css`: color,
+radius and shadow tokens, light and dark palettes, and components such as cards, stat cards,
+tables, badges, modals (native `<dialog>`), dropdowns, toasts and empty states. Its fonts are
+self-hosted (Plus Jakarta Sans and JetBrains Mono, SIL OFL, `static/fonts/`), and its icons are
+inline SVG templates (`templates/icons.html`, Lucide-style). Shared template partials are in
+`templates/components.html`. `static/app.js` holds the few behaviors every page shares: theme,
+mobile navigation, toasts, modals, styled confirmations, `/` to search, and the password
+generator.
+
+Handlers follow one pattern for changes: do it, record it in the audit log, then redirect with a
+flash message, which shows as a toast on the next page. Failures return a plain-text message that
+shows as an error toast.
 
 ## Cloudflare integration
 
@@ -110,6 +160,9 @@ domain apex, or other MX records already pointing elsewhere).
   tables) use real username/password authentication with argon2id password hashing — a proper,
   slow KDF, appropriate for human-chosen secrets (unlike API tokens, which are already
   high-entropy random values and use a fast hash instead — see [SECURITY.md](SECURITY.md)).
+- **Cross-origin protection**: state-changing requests carrying a foreign `Origin` header are
+  rejected (in addition to the `SameSite` cookie), and every response sends
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` and HSTS.
 - **Session cookies**: `HttpOnly`, `Secure`, `SameSite=Lax`. Lax (not Strict) is required so the
   session survives the redirect back from Cloudflare's OAuth consent screen — a cross-site
   top-level navigation, which Strict cookies are never sent on — while still blocking the cookie

@@ -1,0 +1,172 @@
+{{define "content"}}
+{{$g := .Group}}
+{{$path := pathEscape $g.Email}}
+<div class="card">
+  <div class="profile-head">
+    <span class="avatar lg sq tone-purple">{{icon "group"}}</span>
+    <div class="who">
+      <h1 class="mb-0">{{$g.Name}} {{template "policy-badge" $g.PostPolicy}}</h1>
+      <div class="email">{{$g.Email}} <button type="button" class="copy-line-btn" data-copy="{{$g.Email}}" title="Copy address" style="width:26px;height:26px;vertical-align:middle;">{{icon "copy"}}</button></div>
+      {{with $g.Description}}<p class="text-muted mt-2 mb-0">{{.}}</p>{{end}}
+      <div class="meta-row">
+        <span>{{icon "users"}} {{plural $g.MemberCount "member"}}</span>
+        <span>{{icon "crown"}} {{plural .Owners "owner"}}</span>
+        {{if $g.AllowExternal}}<span>{{icon "external"}} {{plural .External "external member"}}</span>{{end}}
+        <span>{{icon "calendar"}} Created {{$g.CreatedAt.Format "Jan 2, 2006"}}</span>
+      </div>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-primary" data-open="add-members">{{icon "user-plus"}} Add members</button>
+    </div>
+  </div>
+</div>
+
+{{if eq $g.MemberCount 0}}
+<div class="flash flash-warn"><strong>This group has no members yet.</strong> Mail sent to {{$g.Email}} is rejected until you add at least one.</div>
+{{else if .Suspended}}
+<div class="flash flash-info">{{plural .Suspended "suspended member"}} won't receive group mail until restored.</div>
+{{end}}
+
+<div class="grid grid-main-side">
+  <div class="stack">
+    <div class="card flush" x-data="{ q: '' }">
+      <div class="card-header">
+        <div><h2>Members</h2><div class="hint">Everyone here receives mail sent to {{$g.Email}}.</div></div>
+        {{if gt (len .Members) 8}}<div class="search" style="position:relative;min-width:220px;">
+          <input type="search" x-model="q" placeholder="Filter members" aria-label="Filter members" style="height:34px;">
+        </div>{{end}}
+      </div>
+      {{if .Members}}
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Member</th><th>Type</th><th>Role</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {{range .Members}}
+            <tr data-search="{{lower .Address}} {{lower .Name}}" x-show="q === '' || $el.dataset.search.includes(q.toLowerCase())">
+              <td>
+                {{if eq .Kind "user"}}
+                {{template "user-cell" (dict "email" .Address "name" .Name "href" (printf "/users/%s" (pathEscape .Address)))}}
+                {{else if eq .Kind "group"}}
+                <div class="entity"><span class="avatar sq tone-purple">{{icon "group"}}</span><div class="entity-text"><a class="entity-title" href="/groups/{{pathEscape .Address}}">{{if .Name}}{{.Name}}{{else}}{{.Address}}{{end}}</a><div class="entity-sub">{{.Address}}</div></div></div>
+                {{else}}
+                <div class="entity"><span class="avatar tone-neutral">{{icon "mail"}}</span><div class="entity-text"><div class="entity-title">{{.Address}}</div></div></div>
+                {{end}}
+              </td>
+              <td>
+                {{if eq .Kind "user"}}{{if .Suspended}}<span class="badge badge-red">Suspended user</span>{{else}}<span class="badge badge-blue">User</span>{{end}}
+                {{else if eq .Kind "group"}}<span class="badge badge-purple">Group</span>
+                {{else if eq .Kind "alias"}}<span class="badge badge-teal">Alias</span>
+                {{else if eq .Kind "missing"}}<span class="badge badge-orange" title="This address no longer exists on this server">Missing</span>
+                {{else}}<span class="badge badge-muted">{{icon "external"}} External</span>{{end}}
+              </td>
+              <td>
+                <form hx-post="/groups/{{$path}}/members/{{pathEscape .Address}}/role" hx-trigger="change">
+                  <select name="role" aria-label="Role for {{.Address}}" style="height:32px;width:auto;min-width:110px;font-size:12.5px;">
+                    <option value="member" {{if eq .Role "member"}}selected{{end}}>Member</option>
+                    <option value="owner" {{if eq .Role "owner"}}selected{{end}}>Owner</option>
+                  </select>
+                </form>
+              </td>
+              <td class="actions">
+                <button class="btn btn-ghost btn-sm" hx-delete="/groups/{{$path}}/members/{{pathEscape .Address}}" hx-confirm="Remove {{.Address}} from {{$g.Email}}?">{{icon "x"}} Remove</button>
+              </td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <div class="empty-state">
+        <div class="empty-icon">{{icon "user-plus"}}</div>
+        <h3>Add the first members</h3>
+        <p>Paste a list of addresses, one per line or separated by commas.</p>
+        <button type="button" class="btn btn-primary" data-open="add-members">{{icon "user-plus"}} Add members</button>
+      </div>
+      {{end}}
+    </div>
+
+    <div class="card flush">
+      <div class="card-header"><h2>Recent activity</h2></div>
+      <div class="card-body" style="padding-top:4px;padding-bottom:4px;">{{template "activity-list" .Activity}}</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <form class="card flush" hx-post="/groups/{{$path}}">
+      <div class="card-header"><h2>Settings</h2></div>
+      <div class="card-body">
+        <div class="field">
+          <label for="gs-name">Group name</label>
+          <input id="gs-name" name="name" type="text" required maxlength="255" value="{{$g.Name}}">
+        </div>
+        <div class="field">
+          <label for="gs-desc">Description</label>
+          <textarea id="gs-desc" name="description" rows="2" maxlength="1000" style="min-height:70px;">{{$g.Description}}</textarea>
+        </div>
+        <div class="field">
+          <label>Who can post</label>
+          <div style="display:grid;gap:8px;">
+            {{range policies}}
+            <label class="choice">
+              <input type="radio" name="post_policy" value="{{.}}" {{if eq . $g.PostPolicy}}checked{{end}}>
+              <span><span class="choice-title">{{policyLabel .}}</span><br><span class="choice-desc">{{policyDesc .}}</span></span>
+            </label>
+            {{end}}
+          </div>
+        </div>
+        <label class="check">
+          <input type="checkbox" name="allow_external" value="1" {{if $g.AllowExternal}}checked{{end}}>
+          <span>Allow external members<div class="help">Addresses outside this organization, e.g. parents' personal email.</div></span>
+        </label>
+      </div>
+      <div class="card-footer"><button type="submit" class="btn btn-primary">Save settings</button></div>
+    </form>
+
+    <div class="card">
+      <h2>How delivery works</h2>
+      <ul class="steps text-sm" style="list-style:disc;">
+        <li>Each member gets their own copy. Replies go to the sender, not the group.</li>
+        <li>A member that is itself a group receives the mail too, so groups can be nested.</li>
+        <li>Posting rules are checked when a message arrives, and senders who aren't allowed get an immediate error.</li>
+        <li>People on this server must be signed in to their mail account to post to a restricted group.</li>
+      </ul>
+    </div>
+
+    <div class="card flush danger-zone">
+      <div class="card-header"><h2>Delete group</h2></div>
+      <div class="card-body">
+        <p class="text-sm text-muted">Mail to {{$g.Email}} will be rejected. Members' mailboxes aren't affected.</p>
+        <button class="btn btn-danger" hx-delete="/groups/{{$path}}" hx-confirm="Delete the group {{$g.Email}}? Mail sent to it will be rejected. Members aren't deleted.">{{icon "trash"}} Delete group</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog class="modal" id="add-members" aria-labelledby="am-title">
+  <form hx-post="/groups/{{$path}}/members">
+    <div class="modal-header">
+      <span class="stat-icon tone-purple">{{icon "user-plus"}}</span>
+      <div><h2 id="am-title">Add members</h2><p>To {{$g.Email}}</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="am-addresses">Email addresses</label>
+        <textarea id="am-addresses" name="addresses" class="mono" rows="7" required placeholder="student1@{{domainOf $g.Email}}&#10;student2@{{domainOf $g.Email}}&#10;teachers@{{domainOf $g.Email}}"></textarea>
+        <div class="help">One per line, or separated by commas. Users, aliases and other groups on this server all work{{if $g.AllowExternal}}, and so do external addresses{{end}}.</div>
+      </div>
+      <div class="field">
+        <label for="am-role">Role</label>
+        <select id="am-role" name="role">
+          <option value="member">Member</option>
+          <option value="owner">Owner (can post when only owners may)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add members</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

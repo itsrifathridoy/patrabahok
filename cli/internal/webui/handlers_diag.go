@@ -23,7 +23,7 @@ type DiagPageData struct {
 
 func (s *Server) diagData(r *http.Request) DiagPageData {
 	data := DiagPageData{
-		Base:     Base{Title: "Diagnostics", Active: "diagnostics", Username: userFromContext(r).Username},
+		Base:     Base{Title: "Diagnostics", Active: "diagnostics", Username: userFromContext(r).Username, Crumbs: []Crumb{{Label: "Diagnostics"}}},
 		Services: diag.CheckServices(),
 		Configs:  diag.CheckConfigs(),
 	}

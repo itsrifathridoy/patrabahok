@@ -28,6 +28,12 @@ You'll be asked for:
 - **Primary mail domain** (e.g. `example.com`)
 - **Mail server hostname** (e.g. `mail.example.com`, defaults to `mail.<domain>`)
 - **Admin email** (used for Let's Encrypt, postmaster, DMARC aggregate reports)
+- **Webmail client**, served at `https://<mail hostname>/`:
+  - `roundcube` (the default): [Roundcube](https://roundcube.net) 1.7, the widely used open-source
+    webmail. It runs on nginx + PHP-FPM on loopback only, users can change their own password
+    under Settings, and failed logins are banned by fail2ban.
+  - `custom`: patrabahok Mail (`mail-client/`), this project's own webmail (Node.js + PostgreSQL).
+  - `none`: no webmail. Users connect with desktop or mobile mail apps.
 
 The installer checks DNS (A record for the hostname, MX for the domain) before proceeding and
 will pause if they're not set yet, so you can add them and retry without restarting.
@@ -37,7 +43,7 @@ will pause if they're not set yet, so you can add them and retry without restart
 Phases run in order, each recorded in `/etc/patrabahok/state.json` so a re-run skips whatever
 already succeeded and resumes at the first failed/incomplete phase:
 
-`preflight → packages → firewall → database → tls → postfix → dovecot → rspamd/clamav → dkim/dns → cli → verify`
+`preflight → packages → firewall → database → tls → postfix → mail routing (groups) → dovecot → rspamd/clamav → dkim/dns → webmail → cli → verify`
 
 At the end, DNS records are printed and saved to
 `/var/lib/patrabahok/dns-records/patrabahok-dns-<domain>.txt`. Add them, wait for propagation,
@@ -50,6 +56,7 @@ cat > /root/patrabahok-answers.env <<'EOF'
 PATRABAHOK_DOMAIN=example.com
 PATRABAHOK_MAIL_HOSTNAME=mail.example.com
 PATRABAHOK_ADMIN_EMAIL=postmaster@example.com
+PATRABAHOK_WEBMAIL=roundcube   # roundcube (default), custom, or none
 EOF
 
 curl -sSL https://patrabahok.com/install.sh | sh -s -- --yes --non-interactive --config /root/patrabahok-answers.env
@@ -78,6 +85,19 @@ patrabahok mailbox add you@another-example.com
 patrabahok dns show another-example.com
 ```
 
+To let another system create and manage a domain's mailboxes over HTTPS, generate that domain's
+API key (dashboard **Domains** page, or `patrabahok api key generate <domain>`). See
+[PUBLIC-API.md](PUBLIC-API.md).
+
+## Changing the webmail client
+
+Re-run the webmail phase with the new choice. The previous client is disabled, but its database
+is kept:
+
+```
+PATRABAHOK_WEBMAIL=custom /opt/patrabahok/current/bin/patrabahok-installer install --force-phase 90-webmail
+```
+
 ## Upgrading
 
 Re-run the one-liner. It re-resolves the latest release, verifies its checksum, and re-invokes
@@ -88,3 +108,8 @@ curl -sSL https://patrabahok.com/install.sh | sh -s -- --yes
 ```
 
 Pin a specific version instead of latest with `--version vX.Y.Z`.
+
+Upgrading a server installed before the webmail phase existed runs `90-webmail` for the first
+time, which asks for a webmail client (in `--non-interactive` mode it uses `PATRABAHOK_WEBMAIL`,
+defaulting to `roundcube`). It also rebuilds `patrabahokd` so the public API and webmail are
+served on `:443`.

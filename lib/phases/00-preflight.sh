@@ -7,6 +7,10 @@ PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 
 . "$PATRABAHOK_HOME/lib/core/state.sh"
 # shellcheck source=../core/prompt.sh
 . "$PATRABAHOK_HOME/lib/core/prompt.sh"
+# shellcheck source=../core/template.sh
+. "$PATRABAHOK_HOME/lib/core/template.sh"
+# shellcheck source=../core/webmail.sh
+. "$PATRABAHOK_HOME/lib/core/webmail.sh"
 
 state_init
 
@@ -121,8 +125,18 @@ phase_run() {
   ask ADMIN_EMAIL "Admin email (used for postmaster, TLS renewal, DMARC reports)" "postmaster@${DOMAIN}"
   is_valid_email "$ADMIN_EMAIL" || die "Invalid email: $ADMIN_EMAIL"
 
+  echo
+  log_info "Webmail client, served at https://${MAIL_HOSTNAME}/:"
+  log_info "  roundcube - Roundcube, the widely used open-source webmail (PHP)"
+  log_info "  custom    - patrabahok Mail, this project's own webmail (Node.js + PostgreSQL)"
+  log_info "  none      - no webmail; users connect with desktop/mobile mail apps only"
+  ask WEBMAIL "Webmail client (roundcube / custom / none)" "roundcube"
+  local webmail
+  webmail="$(normalize_webmail_choice "$WEBMAIL")" || die "Invalid webmail choice: $WEBMAIL (expected roundcube, custom, or none)"
+
   ask_finalize
 
+  state_set webmail "$webmail"
   state_set domain "$DOMAIN"
   state_set hostname "$MAIL_HOSTNAME"
   state_set admin_email "$ADMIN_EMAIL"

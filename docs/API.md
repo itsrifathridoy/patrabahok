@@ -5,6 +5,8 @@
 database with parameterized queries. It exists for automation/integration use — anything you can
 do with the CLI, you can do over this API. See [CLI.md](CLI.md) for the command-line equivalent
 and [WEB-UI.md](WEB-UI.md) for the browser dashboard (a separate account system, not this API).
+To let an external system manage one domain's mailboxes over the internet, use the
+[public per-domain API](PUBLIC-API.md) instead.
 
 ## Transport
 
@@ -48,7 +50,7 @@ or `{"error": "invalid or revoked token"}`.
 ### Scopes
 
 Each token carries one or more scopes (comma-separated at creation), or `*` for all:
-`domain`, `mailbox`, `alias`, `dkim`, `dns`, `queue`, `status`. A scope covers both reading and
+`domain`, `mailbox`, `alias`, `group`, `dkim`, `dns`, `queue`, `status`. A scope covers both reading and
 writing that resource in v1 — there's no separate read-only variant yet. A token that
 authenticates but lacks the scope an endpoint requires gets:
 
@@ -168,8 +170,8 @@ GET /v1/mailboxes?domain=example.com
 
 200 OK
 [
-  {"email": "alice@example.com", "enabled": true, "quota_bytes": 1073741824},
-  {"email": "bob@example.com", "enabled": true, "quota_bytes": 2147483648}
+  {"email": "alice@example.com", "name": "Alice", "enabled": true, "quota_bytes": 1073741824},
+  {"email": "bob@example.com", "name": "", "enabled": true, "quota_bytes": 2147483648}
 ]
 ```
 
@@ -278,6 +280,41 @@ Content-Type: application/json
 
 204 No Content
 ```
+
+## Groups
+
+Distribution lists. See [PUBLIC-API.md](PUBLIC-API.md#groups) for what posting policies and
+member kinds mean. The JSON shapes are the same, except that here groups are addressed by their
+full address.
+
+### `GET /v1/groups?domain=example.com&q=class` — scope: `group`
+
+Both parameters are optional. Returns an array of groups.
+
+### `POST /v1/groups` — scope: `group`
+
+```json
+{"email": "class10@example.com", "name": "Class 10", "description": "", "post_policy": "members", "allow_external": false}
+```
+
+`post_policy` defaults to `organization`. Returns `201` with `{"group": ..., "members": [...]}`.
+
+### `GET /v1/groups/{email}` — scope: `group`
+
+Returns `{"group": ..., "members": [...]}`.
+
+### `DELETE /v1/groups/{email}` — scope: `group`
+
+### `POST /v1/groups/{email}/members` — scope: `group`
+
+```json
+{"members": ["a@example.com", "b@example.com"], "role": "member"}
+```
+
+Returns `{"results": [{"address": ..., "added": true|false, "error": ...}]}`, one entry per
+address.
+
+### `DELETE /v1/groups/{email}/members/{member}` — scope: `group`
 
 ## DKIM / DNS
 

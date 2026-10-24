@@ -66,6 +66,11 @@ files themselves (which are also permission-restricted — e.g. Postfix's SQL ma
   `patrabahokd` only listens on TCP if explicitly told to (`-tcp 127.0.0.1:8991`) — off by
   default, and that flag is meant for `127.0.0.1` only; nothing in the installer opens a
   firewall port for it, and it should never be bound to a public interface.
+- `:443` is `patrabahokd`'s public HTTPS listener, which serves MTA-STS policy files, the
+  per-domain public API ([PUBLIC-API.md](PUBLIC-API.md)) and a reverse proxy to the webmail. The
+  webmail backends themselves (Roundcube's nginx on `127.0.0.1:8081`, patrabahok Mail on
+  `127.0.0.1:3000`) listen on loopback only. Nothing listens on `:80` except certbot during
+  issuance and renewal.
 - Dovecot only listens on IMAPS (993) — no plaintext IMAP/POP3 is exposed.
 - fail2ban bans repeated auth failures against SSH, Postfix (SASL), and Dovecot, with
   progressively increasing ban times.
@@ -81,6 +86,42 @@ is the socket's own filesystem permissions (root or the `patrabahok` group only)
 persisting the plaintext anywhere, not hash slowness. Each token carries one or more scopes
 (`domain`, `mailbox`, `alias`, `dkim`, `dns`, `queue`, `status`, or `*`) checked on every request,
 so a token minted for one integration can't be used to touch unrelated resources.
+
+## Public API keys
+
+Domain API keys (`patrabahok api key generate <domain>`) are stored the same way as API tokens:
+256 random bits, shown once, SHA-256 hash only. Unlike tokens, they work over the internet, so
+their scope is deliberately narrow. A key manages only its own domain's mailboxes and aliases,
+which is checked against the domain in the request path. It can't add or remove domains, touch
+DKIM or the queue, or reach any other domain. Mailbox creation never overwrites an existing
+mailbox (`409` instead), and passwords must be at least 8 characters. Rejected keys are logged
+with the client IP in `journalctl -u patrabahokd`. There's no rate limiting, because guessing a
+256-bit key isn't feasible. Treat a key like a password for every mailbox in its domain. Rotate
+it by generating a new one, which invalidates the old key immediately.
+
+## Groups and the audit log
+
+Group posting policies are enforced by Postfix, through `patrabahokd`'s loopback policy service,
+before a message is accepted. A local address only counts as a member or owner when the session
+is authenticated as that mailbox. Unauthenticated mail claiming a local sender is rejected for
+restricted groups. External members are identified by envelope sender alone, the same trust any
+mailing list gives external posters. Rspamd's SPF/DKIM/DMARC checks still apply to their mail.
+If the policy service is down, mail to groups is deferred, never let through.
+
+Every administrative change from the dashboard, CLI, local API and public API is written to the
+`audit_log` table with actor, action, target, detail and client IP. Passwords and flag values are
+never recorded. Writing an audit entry is best-effort and can't block the change itself.
+
+## Webmail
+
+Roundcube is a pinned, checksum-verified upstream release in `/opt/roundcube`. It connects to
+IMAP/SMTP over loopback and still verifies the certificate against the mail hostname. Its
+installer is removed, and its config (which contains database credentials) is `0640
+root:www-data`. Its password-change plugin uses a dedicated MariaDB user that can only read
+`virtual_users.email`/`enabled` and update `virtual_users.password`. nginx restores the client
+IP from `patrabahokd`'s `X-Forwarded-For`, which `patrabahokd` always overwrites, so the header
+can't be spoofed. That lets fail2ban's `roundcube-auth` jail ban the real address behind repeated
+failed logins.
 
 ## TLS
 

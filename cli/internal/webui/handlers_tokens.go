@@ -20,7 +20,7 @@ func (s *Server) tokensData(r *http.Request) (TokensPageData, error) {
 		return TokensPageData{}, err
 	}
 	return TokensPageData{
-		Base:   Base{Title: "API Tokens", Active: "tokens", Username: userFromContext(r).Username},
+		Base:   Base{Title: "API access", Active: "tokens", Username: userFromContext(r).Username, Crumbs: []Crumb{{Label: "Security"}, {Label: "API access"}}},
 		Tokens: list,
 	}, nil
 }
@@ -60,6 +60,7 @@ func (s *Server) handleTokenAdd(w http.ResponseWriter, r *http.Request) {
 		renderPartial(w, "tokens", "tokens_body", data)
 		return
 	}
+	s.record(r, "token.create", name, "scopes="+strings.Join(scopes, ","))
 	data.NewToken = plaintext
 	data.Tokens, _ = s.tokens.List(r.Context())
 	renderPartial(w, "tokens", "tokens_body", data)
@@ -70,6 +71,7 @@ func (s *Server) handleTokenDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.record(r, "token.revoke", r.PathValue("name"), "")
 	data, err := s.tokensData(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -71,9 +71,10 @@ Live-tested end to end against the real server: real IMAP login, folder auto-cre
 delivery and a correct Sent-folder copy confirmed, star/archive/move, multi-account switching,
 session survival across a restart, and the spam-to-Junk sieve rule.
 
-**Remaining, not yet done:** deployed and tested by hand on the primary server only (Ubuntu
-24.04) — not yet folded into `bin/patrabahok-installer` as a phase, not yet deployed to the
-Ubuntu 22.04/Debian 12 targets, no attachment download, no draft-saving, no search, no keyboard
+**Remaining, not yet done:** now an installer option (`PATRABAHOK_WEBMAIL=custom`, phase
+`90-webmail`, served through `patrabahokd`'s `:443` listener), but that installer path hasn't
+had a live end-to-end install yet. It was deployed and tested by hand on the primary server only
+(Ubuntu 24.04), not yet on the Ubuntu 22.04/Debian 12 targets. Also no attachment download, no draft-saving, no search, no keyboard
 shortcuts, no IMAP IDLE (push — sync is timer-based, not instant).
 
 ## Done: mandatory release signing (minisign)

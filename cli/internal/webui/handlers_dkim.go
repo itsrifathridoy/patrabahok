@@ -78,7 +78,7 @@ func (s *Server) dkimData(r *http.Request, runCheck bool) (DKIMPageData, error) 
 	}
 
 	data := DKIMPageData{
-		Base:     Base{Title: "DNS Analysis", Active: "dkim", Username: userFromContext(r).Username},
+		Base:     Base{Title: "DNS & deliverability", Active: "dkim", Username: userFromContext(r).Username, Crumbs: []Crumb{{Label: "DNS & deliverability"}}},
 		Domains:  domains,
 		Selected: selected,
 	}
@@ -240,6 +240,7 @@ func (s *Server) handleDKIMRotate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		data.DKIMRotateErr = err.Error()
 	} else {
+		s.record(r, "dkim.rotate", domain, "")
 		data.DKIMRotateMsg = "DKIM key rotated — this server now signs with the new key, but DNS still publishes the old public key. Republish the DKIM record below (manually, or via Cloudflare auto-configure) now, or outgoing mail will fail DKIM verification until you do."
 	}
 	// The rotate button's hx-target is #dns-analysis, but rotation also changes the
