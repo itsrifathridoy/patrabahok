@@ -39,6 +39,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`cli/internal/frontdoor`) now also serves the public API and reverse-proxies the webmail
   (`-webmail-upstream`).
 
+- Dashboard server operations (`cli/internal/ops`): **Firewall & bans** (fail2ban jails,
+  unban/ban, a never-ban allowlist, self-unban), **Services** (status, logs and safe
+  start/stop/restart/reload for every service, Rspamd and ClamAV stats), a real **Mail queue**
+  (retry/hold/release/delete per message), and a **Logs** viewer with filtering and live mode.
+  Every action is audited and runs fixed, validated commands.
+- Re-running the installer after an upgrade now rebuilds `patrabahok`/`patrabahokd` when the
+  release version changed. Before, they kept running the old binaries.
+
 ### Security
 - Mailbox addresses are now validated as RFC 5322 dot-atoms. Before, a local part such as
   `../../x` let mailbox create/delete (as root, from the dashboard, CLI or local API) reach paths

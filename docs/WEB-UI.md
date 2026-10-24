@@ -70,14 +70,28 @@ The navigation follows how an organization thinks about its mail, not how the se
     fixing DNS isn't stale. It then compares what's published with what this server expects,
     including the DKIM key it actually signs with, and offers Cloudflare auto-configure, DKIM
     rotation and MTA-STS hosting.
-  - **Mail queue** — view and flush Postfix's queue
+  - **Mail queue** — every queued message with sender, recipients, the remote server's reason
+    for deferring it, and its age. Retry, hold, release or delete one message, retry everything,
+    or delete all deferred messages.
 - **Security**
+  - **Firewall & bans** — fail2ban at a glance: each jail's current and total failures and bans,
+    every banned IP with one-click unban (from one jail or all), manual bans, and a "never ban"
+    allowlist for trusted fixed IPs or networks (no wider than /16). It shows the IP you're
+    connected from, with an "Unban my IP" button if it's banned, and refuses to ban your own IP.
   - **Administrators** — who can sign in to the dashboard
   - **Audit log** — every change from the dashboard, the CLI, local API tokens and domain API
     keys: who made it, when, what it targeted, and the client IP. It's searchable, and passwords
     are never recorded.
   - **API access** — local API tokens, plus pointers to the per-domain public API keys
 - **System**
+  - **Services** — every service the mail server runs (Postfix, Dovecot, Rspamd, ClamAV,
+    Freshclam, Redis, Unbound, fail2ban, MariaDB, `patrabahokd`, plus the chosen webmail's) with
+    status, uptime, memory and journal logs. Start, stop, restart and reload are limited to what
+    is safe for each service: MariaDB and the dashboard itself can only be restarted, and
+    asynchronously. Also shows Rspamd's scan and action counts and ClamAV's signature version.
+  - **Logs** — mail, authentication, fail2ban, Rspamd, webmail and `patrabahokd` logs, with a
+    filter, a line count, and a live mode that refreshes every 5 seconds. Errors and warnings are
+    highlighted.
   - **Diagnostics** — service status, `postfix check`/`doveconf -n`/`rspamadm configtest` output,
     TLS expiry, disk use, recent mail-log problems, and current fail2ban bans
   - **Settings** — change your own password

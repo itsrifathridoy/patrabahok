@@ -27,8 +27,7 @@
     {{range .Sources}}{{if eq .Key $.Source}}<div class="card-body text-sm text-muted" style="padding-bottom:0;">{{.Description}}</div>{{end}}{{end}}
     {{if .Error}}<div class="card-body"><div class="flash flash-error mb-0">{{.Error}}</div></div>
     {{else if .Entries}}
-    <pre class="log-view" data-autoscroll>{{range .Entries}}<span class="log-line {{.Level}}">{{.Text}}</span>
-{{end}}</pre>
+    <pre class="log-view" data-autoscroll>{{range .Entries}}<span class="log-line {{.Level}}">{{.Text}}</span>{{end}}</pre>
     <div class="table-footer"><span>{{len .Entries}} line{{if ne (len .Entries) 1}}s{{end}}{{if .Query}} matching “{{.Query}}”{{end}}</span></div>
     {{else}}
     {{template "empty-state" (dict "icon" "file" "title" "No matching lines" "text" "Try a different filter or a larger number of lines.")}}
