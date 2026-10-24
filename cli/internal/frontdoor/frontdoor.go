@@ -113,6 +113,8 @@ func handler(cfg Config) (http.Handler, error) {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		host := r.Host
 		if i := strings.IndexByte(host, ':'); i != -1 {
 			host = host[:i]

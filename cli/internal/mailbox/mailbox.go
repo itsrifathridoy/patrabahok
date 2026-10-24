@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -28,7 +27,11 @@ const (
 
 var (
 	domainRe = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$`)
-	emailRe  = regexp.MustCompile(`^[^\s@]+@[^\s@]+\.[^\s@]+$`)
+	// The local part must be an RFC 5322 dot-atom: no "/", no leading, trailing or
+	// doubled dots. That matters beyond style, because a mailbox's local part becomes
+	// a directory name under VmailHome: anything looser (e.g. "../../etc") would let
+	// create and delete reach paths outside it as root.
+	emailRe = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+=?^_{|}~-]+(\.[A-Za-z0-9!#$%&'*+=?^_{|}~-]+)*@([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$`)
 )
 
 // ValidationError is an error caused by the caller's input (as opposed to a database
@@ -55,7 +58,8 @@ func ValidateDomain(d string) error {
 }
 
 func ValidateEmail(e string) error {
-	if !emailRe.MatchString(e) {
+	local, _, _ := strings.Cut(e, "@")
+	if len(e) > 254 || len(local) > 64 || !emailRe.MatchString(e) {
 		return invalidf("invalid email address: %s", e)
 	}
 	return nil
@@ -199,13 +203,13 @@ func (s *Store) DomainRemove(ctx context.Context, name string) error {
 	return err
 }
 
+// hashPassword returns a Dovecot {SHA512-CRYPT} hash (see sha512crypt.go).
 func hashPassword(password string) (string, error) {
-	cmd := exec.Command("doveadm", "pw", "-s", "SHA512-CRYPT", "-p", password)
-	out, err := cmd.Output()
+	salt, err := randomSalt()
 	if err != nil {
-		return "", fmt.Errorf("doveadm pw: %w", err)
+		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+	return "{SHA512-CRYPT}" + sha512Crypt(password, salt, 5000), nil
 }
 
 func mailboxDir(domain, local string) string {

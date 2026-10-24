@@ -89,6 +89,7 @@ Usage:
   patrabahok api key revoke <domain>
 
   patrabahok webadmin add <username> [--password PASS]
+  patrabahok webadmin passwd <username> [--password PASS]
   patrabahok webadmin list
   patrabahok webadmin remove <username>
 `)
@@ -645,7 +646,7 @@ func cmdAPIKey(ctx context.Context, keys *domainkey.Store, args []string) error 
 
 func cmdWebAdmin(ctx context.Context, admins *adminauth.Store, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: patrabahok webadmin <add|list|remove> ...")
+		return errors.New("usage: patrabahok webadmin <add|passwd|list|remove> ...")
 	}
 	action, rest := args[0], args[1:]
 	switch action {
@@ -677,6 +678,35 @@ func cmdWebAdmin(ctx context.Context, admins *adminauth.Store, args []string) er
 			return err
 		}
 		ok("Dashboard admin created: %s", username)
+		return nil
+	case "passwd":
+		var password string
+		positional := parseFlags(rest, map[string]*string{"--password": &password}, nil)
+		username, err := arg(positional, 0, "username")
+		if err != nil {
+			return err
+		}
+		if password == "" {
+			p1, err := readPassword(fmt.Sprintf("New password for dashboard user %s: ", username))
+			if err != nil {
+				return err
+			}
+			p2, err := readPassword("Confirm password: ")
+			if err != nil {
+				return err
+			}
+			if p1 != p2 {
+				return errors.New("passwords did not match")
+			}
+			password = p1
+		}
+		if len(password) < 8 {
+			return errors.New("password must be at least 8 characters")
+		}
+		if err := admins.ChangePassword(ctx, username, password); err != nil {
+			return err
+		}
+		ok("Password changed for %s (all of their sessions were signed out)", username)
 		return nil
 	case "list":
 		list, err := admins.ListUsers(ctx)

@@ -40,6 +40,11 @@ func (s *Server) handleSettingsPassword(w http.ResponseWriter, r *http.Request) 
 		failErr(w, r, err)
 		return
 	}
-	s.record(r, "admin.password.change", username, "")
-	done(w, r, "/settings", "Your password was changed.")
+	// ChangePassword signed out every session, this one included; start a new one so
+	// the admin who just changed it stays signed in here.
+	if token, _, err := s.admins.CreateSession(r.Context(), userFromContext(r).ID, r.RemoteAddr, r.UserAgent()); err == nil {
+		setSessionCookie(w, token, true)
+	}
+	s.record(r, "admin.password.change", username, "all other sessions signed out")
+	done(w, r, "/settings", "Your password was changed, and your other sessions were signed out.")
 }

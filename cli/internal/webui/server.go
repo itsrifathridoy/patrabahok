@@ -136,6 +136,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /settings/cloudflare/callback", s.requireAuth(s.handleCloudflareCallback))
 }
 
+// MountAPI serves the per-domain public API (internal/publicapi) under /api/ on the
+// dashboard's port too, alongside its home on :443, so a client pointed at
+// https://<host>:8443/api/... works as well. It's authenticated by domain API keys,
+// not dashboard sessions.
+func (s *Server) MountAPI(h http.Handler) {
+	s.mux.Handle("/api/", h)
+}
+
 func cacheHeaders(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=3600")

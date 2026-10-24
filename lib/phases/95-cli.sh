@@ -88,11 +88,11 @@ ensure_initial_webadmin() {
   local username="admin" password
   password="$(gen_secret)"
   if /usr/local/bin/patrabahok webadmin add "$username" --password "$password" >/dev/null 2>&1; then
-    log_ok "Created the initial dashboard admin account — this is shown once only:"
-    log_ok "  URL:      https://$(state_get hostname):8443/"
-    log_ok "  Username: ${username}"
-    log_ok "  Password: ${password}"
-    log_warn "Save this password now. Change it after logging in (Settings), or add more accounts with: patrabahok webadmin add <username>"
+    log_ok "Created the initial dashboard admin account '${username}' (password shown on screen only, not logged)."
+    # Printed, not logged: log_* also append to install.log, which would keep the
+    # password on disk in plain text.
+    printf '\n  Dashboard URL: https://%s:8443/\n  Username:      %s\n  Password:      %s\n\n' "$(state_get hostname)" "$username" "$password"
+    log_warn "Save this password now; it is not stored anywhere. Change it in Settings, or reset it later with: patrabahok webadmin passwd ${username}"
   else
     log_warn "Could not create the initial dashboard admin account automatically — run 'patrabahok webadmin add <username>' manually."
   fi

@@ -86,7 +86,7 @@ decides based on:
 - the authenticated SASL username if there is one, otherwise the envelope sender
 - an unauthenticated sender in a *hosted* domain is never trusted (anyone can claim it over port
   25), so local users must sign in to post to a restricted group
-- unauthenticated loopback clients are trusted, like `permit_mynetworks`
+- unauthenticated loopback clients (local scripts) are trusted, like `permit_mynetworks`; signed-in sessions are always checked, even over loopback, since webmail submits through 127.0.0.1:587
 - `+tag` addresses are matched to the group, as Postfix itself does
 
 Anything that isn't a group gets `DUNNO`. If the service is unreachable, Postfix temp-fails
