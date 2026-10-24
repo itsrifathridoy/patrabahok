@@ -172,7 +172,12 @@ func plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return strconv.Itoa(n) + " " + noun + "s"
+	// Pluralize the last word: "alias" → "aliases", "external member" → "external members".
+	suffix := "s"
+	if strings.HasSuffix(noun, "s") || strings.HasSuffix(noun, "x") || strings.HasSuffix(noun, "sh") {
+		suffix = "es"
+	}
+	return strconv.Itoa(n) + " " + noun + suffix
 }
 
 var policyLabels = map[string][2]string{

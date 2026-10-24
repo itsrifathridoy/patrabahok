@@ -93,3 +93,26 @@ plugin {
   # regardless of what was actually stored in the database for it.
   quota = maildir:User quota
 }
+
+# Create and subscribe the standard folders in every mailbox on first login, so webmail
+# and mail apps all show Drafts/Sent/Junk/Trash/Archive from day one (and Junk exists
+# before the spam-to-junk sieve rule first files into it). Merges into the stock
+# "namespace inbox" from 15-mailboxes.conf, which already sets their special_use flags.
+namespace inbox {
+  mailbox Drafts {
+    auto = subscribe
+  }
+  mailbox Sent {
+    auto = subscribe
+  }
+  mailbox Junk {
+    auto = subscribe
+  }
+  mailbox Trash {
+    auto = subscribe
+  }
+  mailbox Archive {
+    special_use = \Archive
+    auto = subscribe
+  }
+}
