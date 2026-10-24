@@ -42,7 +42,10 @@ detect_public_ip() {
 check_dns_record() {
   local label="$1" query="$2" expect_substring="$3"
   local result
-  result=$(dig +short "$query" @1.1.1.1 2>/dev/null || true)
+  # $query is "TYPE NAME" and must reach dig as two arguments: quoted as one, dig
+  # looks up a literal name "A mail.example.com" and the check could never pass.
+  local qtype="${query%% *}" qname="${query#* }"
+  result=$(dig +short "$qtype" "$qname" @1.1.1.1 2>/dev/null || true)
   if [ -n "$result" ] && printf '%s' "$result" | grep -qi -- "$expect_substring"; then
     log_ok "$label: OK ($result)"
     return 0
