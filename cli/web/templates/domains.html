@@ -1,76 +1,79 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-blue">{{template "icon-globe"}}</div>
+  <div class="page-header-icon tone-blue">{{icon "globe"}}</div>
   <div>
     <h1>Domains</h1>
-    <p class="subtitle">Domains your mail server accepts and sends mail for.</p>
+    <p class="subtitle">The domains this server sends and receives mail for. Every user, group and alias belongs to one.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-open="new-domain">{{icon "plus"}} Add domain</button>
   </div>
 </div>
 
-<div class="card">
-  <h2>Add a domain</h2>
-  <form hx-post="/domains" hx-target="#domains-table" hx-swap="outerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
-    <div class="form-row">
+<div class="card flush">
+  {{if .Domains}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Domain</th><th class="num">Users</th><th class="num">Groups</th><th class="num">Aliases</th><th>Public API</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Domains}}
+        <tr class="row-link" data-href="/domains/{{.Name}}">
+          <td>
+            <div class="entity">
+              <span class="avatar sq tone-blue">{{icon "globe"}}</span>
+              <div class="entity-text"><a class="entity-title" href="/domains/{{.Name}}">{{.Name}}</a><div class="entity-sub">{{if .Stats.Suspended}}{{.Stats.Suspended}} suspended{{else}}All users active{{end}}</div></div>
+            </div>
+          </td>
+          <td class="num"><a href="/users?domain={{.Name}}">{{.Stats.Users}}</a></td>
+          <td class="num"><a href="/groups?domain={{.Name}}">{{.Stats.Groups}}</a></td>
+          <td class="num"><a href="/aliases?domain={{.Name}}">{{.Stats.Aliases}}</a></td>
+          <td>{{if .APIKey}}<span class="badge badge-green">{{icon "key"}} Key active</span>{{else}}<span class="badge badge-muted">No key</span>{{end}}</td>
+          <td class="actions">
+            <a class="btn btn-ghost btn-sm" href="/dkim?domain={{.Name}}">DNS</a>
+            <a class="btn btn-ghost btn-sm" href="/domains/{{.Name}}">Manage {{icon "chevron-right"}}</a>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <div class="empty-icon">{{icon "globe"}}</div>
+    <h3>No domains yet</h3>
+    <p>Add the domain your addresses will use, then publish the DNS records it needs.</p>
+    <button type="button" class="btn btn-primary" data-open="new-domain">{{icon "plus"}} Add domain</button>
+  </div>
+  {{end}}
+</div>
+
+<div class="card flush">
+  <div class="card-header">
+    <div><h2>Cloudflare</h2><div class="hint">Connect Cloudflare to publish DNS records automatically for domains whose zone is in your account. You can always add records by hand instead.</div></div>
+  </div>
+  <div class="card-body">{{template "cloudflare_section" .Cloudflare}}</div>
+</div>
+
+<dialog class="modal" id="new-domain" aria-labelledby="nd-title">
+  <form hx-post="/domains">
+    <div class="modal-header">
+      <span class="stat-icon tone-blue">{{icon "globe"}}</span>
+      <div><h2 id="nd-title">Add a domain</h2><p>A DKIM signing key is generated for it automatically.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
       <div class="field">
-        <label for="name">Domain</label>
-        <input type="text" id="name" name="name" placeholder="example.com" required>
+        <label for="nd-name">Domain name</label>
+        <input id="nd-name" name="name" type="text" required placeholder="school.edu" autocomplete="off">
+        <div class="help">Next, you'll publish its MX, SPF, DKIM and DMARC records.</div>
       </div>
-      <button type="submit" class="btn btn-primary">{{template "icon-globe"}} Add domain</button>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add domain</button>
     </div>
   </form>
-</div>
-
-<div class="card">
-  {{template "domains_table" .}}
-</div>
-
-<div class="card">
-  <h2>Cloudflare</h2>
-  <p class="text-muted" style="margin-top:-6px;">
-    Connect Cloudflare to auto-configure DNS records for domains whose zone lives in
-    your account, instead of adding them by hand. You can still always configure DNS
-    manually — connecting Cloudflare just adds a faster option when it applies.
-  </p>
-  {{template "cloudflare_section" .Cloudflare}}
-</div>
-{{end}}
-
-{{define "domains_table"}}
-<div id="domains-table">
-  {{if .JustAdded}}
-  <div class="flash flash-success">
-    <strong>{{.JustAdded}}</strong> added. <a href="/dkim?domain={{.JustAdded}}">Configure DNS &amp; verify →</a>
-    {{if .JustAddedCFZone}}
-    <button class="btn btn-primary btn-sm" style="margin-left:8px;"
-      hx-post="/domains/cloudflare-apply?domain={{.JustAdded}}" hx-target="#cf-quick-apply" hx-swap="innerHTML">
-      Auto-configure via Cloudflare ({{.JustAddedCFZone}})
-    </button>
-    {{end}}
-    <div id="cf-quick-apply"></div>
-  </div>
-  {{end}}
-  {{if .Domains}}
-  <table>
-    <thead><tr><th>Domain</th><th></th><th></th></tr></thead>
-    <tbody>
-      {{range .Domains}}
-      <tr>
-        <td class="mono">{{.Name}}</td>
-        <td><a href="/dkim?domain={{.Name}}">Configure DNS →</a></td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-danger"
-            hx-delete="/domains/{{.Name}}"
-            hx-target="#domains-table" hx-swap="outerHTML"
-            hx-confirm="Delete {{.Name}} and all its mailboxes/aliases?">Delete</button>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty">No domains yet. Add one above.</div>
-  {{end}}
-</div>
+</dialog>
 {{end}}
 
 {{define "cf_quick_apply_result"}}

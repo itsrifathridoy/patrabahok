@@ -14,7 +14,7 @@ type QueuePageData struct {
 func (s *Server) queueData(r *http.Request) QueuePageData {
 	out, _ := sysinfo.QueueList()
 	return QueuePageData{
-		Base:  Base{Title: "Mail queue", Active: "queue", Username: userFromContext(r).Username},
+		Base:  Base{Title: "Mail queue", Active: "queue", Username: userFromContext(r).Username, Crumbs: []Crumb{{Label: "Mail queue"}}},
 		Queue: out,
 	}
 }
@@ -29,5 +29,6 @@ func (s *Server) handleQueuePartial(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleQueueFlush(w http.ResponseWriter, r *http.Request) {
 	_, _ = sysinfo.QueueFlush()
+	s.record(r, "queue.flush", "", "")
 	renderPartial(w, "queue", "queue_body", s.queueData(r))
 }

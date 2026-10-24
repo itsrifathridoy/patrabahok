@@ -1,0 +1,138 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-teal">{{icon "users"}}</div>
+  <div>
+    <h1>Users</h1>
+    <p class="subtitle">Mailboxes people sign in to. Each user gets an address, a password and a storage limit.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/users/import">{{icon "upload"}} Import</a>
+    <button type="button" class="btn btn-primary" data-open="new-user" {{if not .Domains}}disabled title="Add a domain first"{{end}}>{{icon "user-plus"}} Add user</button>
+  </div>
+</div>
+
+<div class="stat-grid stat-grid-3">
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Total users</div><div class="stat-value">{{.TotalUsers}}</div></div><span class="stat-icon tone-blue">{{icon "users"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Active</div><div class="stat-value">{{.ActiveUsers}}</div></div><span class="stat-icon tone-green">{{icon "check-circle"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Suspended</div><div class="stat-value">{{.Suspended}}</div></div><span class="stat-icon tone-red">{{icon "ban"}}</span></div></div>
+</div>
+
+<div class="card flush" id="users-table">
+  <form class="table-toolbar" method="get" action="/users"
+        hx-get="/users" hx-target="#users-table" hx-select="#users-table" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change">
+    <div class="search">{{icon "search"}}<input type="search" name="q" value="{{.Query}}" placeholder="Search by name or address" aria-label="Search users"></div>
+    <select name="domain" aria-label="Domain">
+      <option value="">All domains</option>
+      {{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <select name="status" aria-label="Status">
+      <option value="">Any status</option>
+      <option value="active" {{if eq .Status "active"}}selected{{end}}>Active</option>
+      <option value="suspended" {{if eq .Status "suspended"}}selected{{end}}>Suspended</option>
+    </select>
+    <noscript><button class="btn" type="submit">Filter</button></noscript>
+  </form>
+
+  {{if .Users}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>User</th><th>Status</th><th>Storage</th><th>Created</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Users}}
+        <tr class="row-link" data-href="/users/{{pathEscape .Email}}">
+          <td>{{template "user-cell" (dict "email" .Email "name" .DisplayName "href" (printf "/users/%s" (pathEscape .Email)))}}</td>
+          <td>{{template "status-badge" .Enabled}}</td>
+          <td>{{template "usage" (dict "used" .UsedBytes "quota" .QuotaBytes)}}</td>
+          <td class="text-muted nowrap">{{.CreatedAt.Format "Jan 2, 2006"}}</td>
+          <td class="actions">
+            <div class="dropdown" x-data="{ open: false }" @click.outside="open = false">
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" @click="open = !open" aria-label="Actions for {{.Email}}">{{icon "more"}}</button>
+              <div class="dropdown-menu" x-show="open" x-cloak x-transition.opacity>
+                <a href="/users/{{pathEscape .Email}}">{{icon "user"}} Open profile</a>
+                <a href="/users/{{pathEscape .Email}}#security">{{icon "lock"}} Reset password</a>
+                {{if .Enabled}}
+                <button hx-post="/users/{{pathEscape .Email}}/status" hx-vals='{"enabled":"0"}'
+                  hx-confirm="Suspend {{.Email}}? They won't be able to sign in or receive mail until restored. Their mail is kept.">{{icon "ban"}} Suspend</button>
+                {{else}}
+                <button hx-post="/users/{{pathEscape .Email}}/status" hx-vals='{"enabled":"1"}'>{{icon "unlock"}} Restore</button>
+                {{end}}
+                <hr>
+                <button class="danger" hx-delete="/users/{{pathEscape .Email}}"
+                  hx-confirm="Delete {{.Email}} permanently? This deletes all of their stored mail and can't be undone.">{{icon "trash"}} Delete user</button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{template "pager" .Pager}}
+  {{else if or .Query .Domain .Status}}
+  {{template "empty-state" (dict "icon" "search" "title" "No users match these filters" "text" "Try a different search, or clear the filters.")}}
+  {{else if .Domains}}
+  <div class="empty-state">
+    <div class="empty-icon">{{icon "users"}}</div>
+    <h3>No users yet</h3>
+    <p>Create users one at a time, or import a whole class from a CSV file.</p>
+    <div class="btn-group" style="justify-content:center;">
+      <a class="btn" href="/users/import">{{icon "upload"}} Import CSV</a>
+      <button type="button" class="btn btn-primary" data-open="new-user">{{icon "user-plus"}} Add user</button>
+    </div>
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <div class="empty-icon">{{icon "globe"}}</div>
+    <h3>Add a domain first</h3>
+    <p>Users get addresses on a domain this server hosts.</p>
+    <a class="btn btn-primary" href="/domains">{{icon "plus"}} Add a domain</a>
+  </div>
+  {{end}}
+</div>
+
+{{if .Domains}}
+<dialog class="modal" id="new-user" aria-labelledby="new-user-title">
+  <form hx-post="/users">
+    <div class="modal-header">
+      <span class="stat-icon tone-teal">{{icon "user-plus"}}</span>
+      <div><h2 id="new-user-title">Add a user</h2><p>They can sign in to webmail and mail apps right away.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="nu-name">Full name</label>
+        <input id="nu-name" name="name" type="text" placeholder="Student One" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="nu-local">Email address</label>
+        <div class="input-group">
+          <input id="nu-local" name="local" type="text" placeholder="student1" required autocomplete="off" pattern="[A-Za-z0-9._\-]+" title="Letters, digits, dots, dashes and underscores">
+          <span class="addon">@</span>
+          <select name="domain" aria-label="Domain">{{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="nu-password">Password</label>
+          <div class="input-group">
+            <input id="nu-password" name="password" type="password" required minlength="8" autocomplete="new-password">
+            <button type="button" class="btn" data-generate-password="nu-password" title="Generate a strong password">{{icon "refresh"}}</button>
+          </div>
+          <div class="help">At least 8 characters. Generated passwords are shown so you can share them.</div>
+        </div>
+        <div class="field">
+          <label for="nu-quota">Storage limit</label>
+          <select id="nu-quota" name="quota">{{range .QuotaChoices}}<option value="{{.}}" {{if eq . "1G"}}selected{{end}}>{{.}}B</option>{{end}}</select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Create user</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+<script>if (new URLSearchParams(location.search).get("new") === "1") document.addEventListener("DOMContentLoaded", function () { var d = document.getElementById("new-user"); if (d) d.showModal(); });</script>
+{{end}}

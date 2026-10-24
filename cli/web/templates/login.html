@@ -4,27 +4,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in — patrabahok</title>
+  <title>Sign in · patrabahok admin</title>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("patrabahok_theme");
+        if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="/static/style.css?v={{assetVersion}}">
 </head>
 <body>
   <div class="login-page">
-    <div class="login-card">
-      <div class="brand">patrabahok</div>
-      <p class="subtitle">Sign in to manage your mail server.</p>
-      {{if .Error}}<div class="flash flash-error">{{.Error}}</div>{{end}}
-      <form method="post" action="/login">
-        <div class="field">
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+    <section class="login-hero" aria-hidden="true">
+      <div class="brand">
+        <div class="brand-mark">{{icon "send"}}</div>
+        <div class="brand-name" style="font-size:19px;">patra<span>bahok</span></div>
+      </div>
+      <div>
+        <h2>Your organization's email, <span>under your control.</span></h2>
+        <p>Manage users, groups and domains for your mail server from one place.</p>
+        <div class="features">
+          <div class="feature"><span class="fi">{{icon "users"}}</span> Users, storage limits and bulk import</div>
+          <div class="feature"><span class="fi">{{icon "group"}}</span> Groups with posting permissions</div>
+          <div class="feature"><span class="fi">{{icon "shield"}}</span> DKIM, SPF, DMARC and MTA-STS built in</div>
+          <div class="feature"><span class="fi">{{icon "history"}}</span> A full audit trail of every change</div>
         </div>
-        <div class="field">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;">Sign in</button>
-      </form>
-    </div>
+      </div>
+      <div class="foot">Self-hosted mail administration</div>
+    </section>
+
+    <main class="login-side">
+      <div class="login-card">
+        <h1>Sign in</h1>
+        <p class="subtitle">Use your administrator account.</p>
+        {{if .Error}}<div class="flash flash-error" role="alert">{{.Error}}</div>{{end}}
+        <form method="post" action="/login">
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Sign in {{icon "arrow-right"}}</button>
+        </form>
+        <p class="text-sm text-muted mt-4">Forgot your password? From the server's shell, run <code>patrabahok webadmin add &lt;username&gt;</code> to create a new administrator.</p>
+      </div>
+    </main>
   </div>
 </body>
 </html>

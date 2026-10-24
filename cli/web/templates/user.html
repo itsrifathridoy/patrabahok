@@ -1,0 +1,230 @@
+{{define "content"}}
+{{$u := .User}}
+{{$path := pathEscape $u.Email}}
+<div class="card">
+  <div class="profile-head">
+    <span class="avatar lg {{avatarClass $u.Email}}">{{if $u.DisplayName}}{{initials $u.DisplayName}}{{else}}{{initials $u.Email}}{{end}}</span>
+    <div class="who">
+      <h1 class="mb-0">{{if $u.DisplayName}}{{$u.DisplayName}}{{else}}{{localPart $u.Email}}{{end}} {{template "status-badge" $u.Enabled}}</h1>
+      <div class="email">{{$u.Email}}</div>
+      <div class="meta-row">
+        <span>{{icon "globe"}} <a href="/domains/{{domainOf $u.Email}}">{{domainOf $u.Email}}</a></span>
+        <span>{{icon "calendar"}} Created {{$u.CreatedAt.Format "Jan 2, 2006"}}</span>
+        <span>{{icon "group"}} {{plural (len .Groups) "group"}}</span>
+        {{if .Forward}}<span>{{icon "forward"}} Forwards to {{.Forward.Destination}}</span>{{end}}
+      </div>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn" data-open="reset-password">{{icon "lock"}} Reset password</button>
+      {{if $u.Enabled}}
+      <button type="button" class="btn btn-danger" hx-post="/users/{{$path}}/status" hx-vals='{"enabled":"0"}'
+        hx-confirm="Suspend {{$u.Email}}? They won't be able to sign in or receive mail until restored. Their stored mail is kept.">{{icon "ban"}} Suspend</button>
+      {{else}}
+      <button type="button" class="btn btn-success" hx-post="/users/{{$path}}/status" hx-vals='{"enabled":"1"}'>{{icon "unlock"}} Restore</button>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+{{if not $u.Enabled}}
+<div class="flash flash-warn"><strong>This user is suspended.</strong> They can't sign in, mail sent to them is rejected, and group mail skips them. Their stored mail is kept.</div>
+{{end}}
+
+<div class="grid grid-main-side">
+  <div class="stack">
+    <div class="card flush">
+      <div class="card-header"><div><h2>Profile</h2><div class="hint">How this user appears in the directory.</div></div></div>
+      <form class="card-body" hx-post="/users/{{$path}}/profile">
+        <div class="form-row">
+          <div class="field">
+            <label for="p-name">Full name</label>
+            <input id="p-name" name="name" type="text" value="{{$u.DisplayName}}" maxlength="255" placeholder="e.g. Student One">
+          </div>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card flush">
+      <div class="card-header">
+        <div><h2>Email forwarding</h2><div class="hint">Send a copy of every incoming message to another address.</div></div>
+        {{if .Forward}}<span class="badge badge-blue">{{icon "forward"}} On</span>{{else}}<span class="badge badge-muted">Off</span>{{end}}
+      </div>
+      <form class="card-body" hx-post="/users/{{$path}}/forward">
+        <div class="field">
+          <label for="f-dest">Forward to</label>
+          <input id="f-dest" name="destination" type="email" required placeholder="someone@example.com" value="{{with .Forward}}{{.Destination}}{{end}}">
+        </div>
+        <label class="check mb-4">
+          <input type="checkbox" name="keep_copy" value="1" {{if or (not .Forward) .Forward.KeepCopy}}checked{{end}}>
+          <span>Keep a copy in this mailbox<div class="help">Without it, mail is only delivered to the forwarding address.</div></span>
+        </label>
+        <div class="btn-group">
+          <button type="submit" class="btn btn-primary">{{if .Forward}}Update forwarding{{else}}Turn on forwarding{{end}}</button>
+          {{if .Forward}}<button type="button" class="btn" hx-delete="/users/{{$path}}/forward">Turn off</button>{{end}}
+        </div>
+      </form>
+    </div>
+
+    <div class="card flush">
+      <div class="card-header">
+        <div><h2>Alternate addresses</h2><div class="hint">Aliases that also deliver to this mailbox.</div></div>
+        <button type="button" class="btn btn-sm" data-open="add-alias">{{icon "plus"}} Add address</button>
+      </div>
+      {{if .Aliases}}
+      <ul class="list-plain card-body" style="padding-top:6px;padding-bottom:6px;">
+        {{range .Aliases}}
+        <li>
+          <span class="flex items-center gap-2"><span class="avatar sm sq tone-neutral">{{icon "at"}}</span><span class="mono">{{.}}</span></span>
+          <button class="btn btn-ghost btn-sm" hx-delete="/users/{{$path}}/aliases/{{pathEscape .}}" hx-confirm="Stop delivering {{.}} to {{$u.Email}}?">{{icon "x"}} Remove</button>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <div class="card-body text-muted text-sm">No alternate addresses. Add one so this user also receives mail sent to, say, <span class="mono">info@{{domainOf $u.Email}}</span>.</div>
+      {{end}}
+    </div>
+
+    <div class="card flush">
+      <div class="card-header">
+        <div><h2>Groups</h2><div class="hint">Mail to these groups is delivered to this user.</div></div>
+        {{if .OtherGroups}}<button type="button" class="btn btn-sm" data-open="add-group">{{icon "plus"}} Add to group</button>{{end}}
+      </div>
+      {{if .Groups}}
+      <table>
+        <tbody>
+          {{range .Groups}}
+          <tr>
+            <td><div class="entity"><span class="avatar sq tone-purple">{{icon "group"}}</span><div class="entity-text"><a class="entity-title" href="/groups/{{pathEscape .Email}}">{{.Name}}</a><div class="entity-sub">{{.Email}}</div></div></div></td>
+            <td>{{template "policy-badge" .PostPolicy}}</td>
+            <td class="actions"><button class="btn btn-ghost btn-sm" hx-delete="/users/{{$path}}/groups/{{pathEscape .Email}}" hx-confirm="Remove {{$u.Email}} from {{.Email}}?">{{icon "x"}} Remove</button></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <div class="card-body text-muted text-sm">Not a member of any group.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card flush">
+      <div class="card-header"><h2>Storage</h2></div>
+      <div class="card-body">
+        {{$p := percent .UsedBytes $u.QuotaBytes}}
+        <div class="flex justify-between items-center mb-0"><span class="stat-value" style="margin:0;font-size:22px;">{{bytes .UsedBytes}}</span><span class="text-muted text-sm">of {{bytes $u.QuotaBytes}} · {{$p}}%</span></div>
+        <div class="progress mt-2"><div class="progress-bar {{if ge $p 90}}danger{{else if ge $p 75}}warn{{end}}" style="width: {{$p}}%"></div></div>
+        {{if ge $p 90}}<p class="text-sm text-danger mt-2 mb-0">Nearly full. New mail is rejected once the limit is reached.</p>{{end}}
+        <form class="form-row mt-4" hx-post="/users/{{$path}}/quota">
+          <div class="field">
+            <label for="q-quota">Storage limit</label>
+            <select id="q-quota" name="quota">
+              {{$cur := quotaKey $u.QuotaBytes}}
+              {{if not (inChoices $cur .QuotaChoices)}}<option value="{{$cur}}" selected>{{bytes $u.QuotaBytes}} (current)</option>{{end}}
+              {{range .QuotaChoices}}<option value="{{.}}" {{if eq . $cur}}selected{{end}}>{{.}}B</option>{{end}}
+            </select>
+          </div>
+          <button type="submit" class="btn">Apply</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card flush" id="security">
+      <div class="card-header"><h2>Security</h2></div>
+      <div class="card-body">
+        <p class="text-muted text-sm">Set a new password and share it with the user. It takes effect the next time they sign in.</p>
+        <button type="button" class="btn" data-open="reset-password">{{icon "lock"}} Reset password</button>
+      </div>
+    </div>
+
+    <div class="card flush">
+      <div class="card-header"><h2>Recent activity</h2></div>
+      <div class="card-body" style="padding-top:4px;padding-bottom:4px;">{{template "activity-list" .Activity}}</div>
+    </div>
+
+    <div class="card flush danger-zone">
+      <div class="card-header"><h2>Delete user</h2></div>
+      <div class="card-body">
+        <p class="text-sm text-muted">Deletes the mailbox and <strong>all of its stored mail</strong>, and removes it from every group. This can't be undone. To keep the mail, suspend the user instead.</p>
+        <button class="btn btn-danger" hx-delete="/users/{{$path}}"
+          hx-confirm="Delete {{$u.Email}} permanently? This deletes all of their stored mail and can't be undone.">{{icon "trash"}} Delete user</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog class="modal" id="reset-password" aria-labelledby="rp-title">
+  <form hx-post="/users/{{$path}}/password">
+    <div class="modal-header">
+      <span class="stat-icon tone-blue">{{icon "lock"}}</span>
+      <div><h2 id="rp-title">Reset password</h2><p>For {{$u.Email}}</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="rp-password">New password</label>
+        <div class="input-group">
+          <input id="rp-password" name="password" type="password" required minlength="8" autocomplete="new-password">
+          <button type="button" class="btn" data-generate-password="rp-password" title="Generate a strong password">{{icon "refresh"}} Generate</button>
+        </div>
+        <div class="help">Copy it before saving. It isn't shown again.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Set password</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="modal" id="add-alias" aria-labelledby="aa-title">
+  <form hx-post="/users/{{$path}}/aliases">
+    <div class="modal-header">
+      <span class="stat-icon tone-blue">{{icon "at"}}</span>
+      <div><h2 id="aa-title">Add an alternate address</h2><p>Mail to it will be delivered to {{$u.Email}}.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="aa-local">Address</label>
+        <div class="input-group">
+          <input id="aa-local" name="local" type="text" required placeholder="info">
+          <span class="addon">@</span>
+          <select name="domain" aria-label="Domain">{{range .Domains}}<option value="{{.Name}}" {{if eq .Name (domainOf $u.Email)}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add address</button>
+    </div>
+  </form>
+</dialog>
+
+{{if .OtherGroups}}
+<dialog class="modal" id="add-group" aria-labelledby="ag-title">
+  <form hx-post="/users/{{$path}}/groups">
+    <div class="modal-header">
+      <span class="stat-icon tone-purple">{{icon "group"}}</span>
+      <div><h2 id="ag-title">Add to a group</h2><p>{{$u.Email}} will receive the group's mail.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="ag-group">Group</label>
+        <select id="ag-group" name="group">{{range .OtherGroups}}<option value="{{.Email}}">{{.Name}} ({{.Email}})</option>{{end}}</select>
+      </div>
+      <div class="field">
+        <label for="ag-role">Role</label>
+        <select id="ag-role" name="role"><option value="member">Member</option><option value="owner">Owner (can post to owners-only groups)</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Add to group</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+{{end}}

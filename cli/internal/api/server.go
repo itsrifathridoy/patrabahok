@@ -30,6 +30,7 @@ func New(db *sql.DB) *Server {
 		mux:    http.NewServeMux(),
 	}
 	s.routes()
+	s.groupRoutes()
 	return s
 }
 

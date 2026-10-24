@@ -10,6 +10,7 @@ daemon) are both built from the Go module at `cli/` (`go build ./cmd/patrabahok`
 ## Domains
 
 ```
+patrabahok domain catchall <domain> [<address>|off]
 patrabahok domain add <domain>
 patrabahok domain list
 patrabahok domain remove <domain> [--force]
@@ -27,7 +28,17 @@ patrabahok mailbox list [domain]
 patrabahok mailbox remove <user@domain> [--force]
 patrabahok mailbox passwd <user@domain> [--password PASS]
 patrabahok mailbox quota <user@domain> <quota>    # e.g. 2G, 500M
+patrabahok mailbox name <user@domain> <display name>
+patrabahok mailbox enable|disable <user@domain>
+patrabahok mailbox forward <user@domain> <address>|off [--no-copy]
 ```
+
+`mailbox forward` sends a copy of every incoming message to another address. With `--no-copy`
+the mailbox itself stops receiving it.
+
+`mailbox name` sets the mailbox's display name. It's informational, shown in the dashboard and the
+APIs, and not used by Postfix or Dovecot. Leave the name empty to clear it. `mailbox disable`
+blocks login and delivery for a mailbox but keeps its stored mail. `enable` reverses it.
 
 The domain must already be added (`patrabahok domain add`) before adding a mailbox in it. If
 `--password` isn't given, you'll be prompted twice (hidden input, via `golang.org/x/term`).
@@ -42,6 +53,35 @@ change takes effect immediately (no restart, no cache to invalidate) — Dovecot
 the mailbox's next IMAP session or delivery. Once a mailbox is actually over quota, LMTP delivery
 is rejected (`552 5.2.2 Quota exceeded`) and Postfix bounces the message back to the sender —
 verify current usage/limit with `doveadm quota get -u <user@domain>`.
+
+## Groups
+
+```
+patrabahok group create <group@domain> [--name N] [--description D] [--post P] [--external]
+patrabahok group update <group@domain> [--name N] [--description D] [--post P] [--external|--no-external]
+patrabahok group list [domain]
+patrabahok group show <group@domain>
+patrabahok group delete <group@domain>
+patrabahok group add <group@domain> <address>... [--owner]
+patrabahok group remove <group@domain> <address>
+patrabahok group role <group@domain> <address> member|owner
+```
+
+A group is one address that delivers to every member (users, aliases, other groups, and, with
+`--external`, outside addresses). `--post` sets who may send to it: `anyone`, `organization` (any
+signed-in user on this server, the default), `members`, or `owners`. Postfix enforces it through
+`patrabahokd`'s policy service, see [ARCHITECTURE.md](ARCHITECTURE.md#groups-forwarding-and-catch-all).
+`group add` reports each address separately.
+
+## Audit log
+
+```
+patrabahok audit [--search TEXT] [--limit N]
+```
+
+Lists recent changes from the dashboard, the CLI, API tokens and domain API keys. Every
+successful CLI command that changes something is recorded as actor `cli`, without flag values,
+so passwords never reach the log.
 
 ## Aliases
 
@@ -100,6 +140,18 @@ patrabahok api token revoke <name>
 creation and cannot be recovered afterward — only its SHA-256 hash is stored (see
 [SECURITY.md](SECURITY.md)).
 
+## Public API keys
+
+```
+patrabahok api key generate <domain>
+patrabahok api key list
+patrabahok api key revoke <domain>
+```
+
+One key per domain, for the internet-facing per-domain API at `https://<hostname>/api/<domain>/`
+(see [PUBLIC-API.md](PUBLIC-API.md)). `generate` prints the key once and replaces any key the
+domain already had. A key can only manage its own domain's mailboxes and aliases.
+
 ## The `patrabahokd` API
 
 A local JSON API mirroring the CLI, for automation/integration use, built from the same Go module
@@ -114,7 +166,7 @@ Full endpoint reference (every route, request/response bodies, error shapes) is 
 ## Scopes
 
 Each token has one or more scopes (comma-separated), or `*` for all: `domain`, `mailbox`,
-`alias`, `dkim`, `dns`, `queue`, `status`. A scope covers both reading and writing that resource
+`alias`, `group`, `dkim`, `dns`, `queue`, `status`. A scope covers both reading and writing that resource
 in v1 — finer read/write splitting is a possible future refinement, not implemented yet.
 
 ## Web dashboard admins

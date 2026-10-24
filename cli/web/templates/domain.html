@@ -1,0 +1,128 @@
+{{define "content"}}
+{{$d := .Domain}}
+<div class="page-header">
+  <div class="page-header-icon tone-blue">{{icon "globe"}}</div>
+  <div>
+    <h1>{{$d.Name}}</h1>
+    <p class="subtitle">{{plural $d.Stats.Users "user"}} · {{plural $d.Stats.Groups "group"}} · {{plural $d.Stats.Aliases "alias"}}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/dkim?domain={{$d.Name}}">{{icon "shield"}} DNS & deliverability</a>
+    <a class="btn btn-primary" href="/users?domain={{$d.Name}}&new=1">{{icon "user-plus"}} Add user</a>
+  </div>
+</div>
+
+{{if .CFZone}}
+<div class="flash flash-info">
+  <strong>{{$d.Name}}</strong> is on your connected Cloudflare account (zone {{.CFZone}}). Publish all of its mail DNS records in one step:
+  <button class="btn btn-primary btn-sm" style="margin-left:8px;" hx-post="/domains/cloudflare-apply?domain={{$d.Name}}" hx-target="#cf-quick-apply" hx-swap="innerHTML">Auto-configure DNS</button>
+  <div id="cf-quick-apply"></div>
+</div>
+{{end}}
+
+<div class="stat-grid">
+  <a class="stat-card" href="/users?domain={{$d.Name}}"><div class="stat-top"><div><div class="stat-label">Users</div><div class="stat-value">{{$d.Stats.Users}}</div></div><span class="stat-icon tone-teal">{{icon "users"}}</span></div>{{if $d.Stats.Suspended}}<div class="stat-foot"><span class="badge badge-red">{{$d.Stats.Suspended}} suspended</span></div>{{end}}</a>
+  <a class="stat-card" href="/groups?domain={{$d.Name}}"><div class="stat-top"><div><div class="stat-label">Groups</div><div class="stat-value">{{$d.Stats.Groups}}</div></div><span class="stat-icon tone-purple">{{icon "group"}}</span></div></a>
+  <a class="stat-card" href="/aliases?domain={{$d.Name}}"><div class="stat-top"><div><div class="stat-label">Aliases</div><div class="stat-value">{{$d.Stats.Aliases}}</div></div><span class="stat-icon tone-blue">{{icon "at"}}</span></div></a>
+  <a class="stat-card" href="/dkim?domain={{$d.Name}}"><div class="stat-top"><div><div class="stat-label">DNS records</div><div class="stat-value" style="font-size:17px;margin-top:12px;">Verify now →</div></div><span class="stat-icon tone-green">{{icon "shield"}}</span></div></a>
+</div>
+
+<div class="grid grid-main-side">
+  <div class="stack">
+    {{template "apikey_card" .}}
+
+    <form class="card flush" hx-post="/domains/{{$d.Name}}/catchall" x-data="{ on: {{if .CatchAll}}true{{else}}false{{end}} }">
+      <div class="card-header">
+        <div><h2>Catch-all address</h2><div class="hint">What happens to mail for addresses that don't exist at {{$d.Name}}.</div></div>
+        {{if .CatchAll}}<span class="badge badge-blue">On</span>{{else}}<span class="badge badge-muted">Off</span>{{end}}
+      </div>
+      <div class="card-body">
+        <div class="choice-grid">
+          <label class="choice"><input type="radio" name="enabled" value="0" @change="on = false" {{if not .CatchAll}}checked{{end}}><span><span class="choice-title">Reject it</span><br><span class="choice-desc">The sender gets a "no such user" error. Recommended.</span></span></label>
+          <label class="choice"><input type="radio" name="enabled" value="1" @change="on = true" {{if .CatchAll}}checked{{end}}><span><span class="choice-title">Deliver to one address</span><br><span class="choice-desc">Nothing gets lost, but it attracts spam sent to made-up names.</span></span></label>
+        </div>
+        <div class="field mt-4" x-show="on" x-cloak>
+          <label for="ca-dest">Deliver unknown-address mail to</label>
+          <input id="ca-dest" name="destination" type="email" value="{{.CatchAll}}" placeholder="office@{{$d.Name}}">
+        </div>
+      </div>
+      <div class="card-footer"><button type="submit" class="btn btn-primary">Save</button></div>
+    </form>
+
+    <div class="card flush">
+      <div class="card-header"><h2>Recent activity</h2></div>
+      <div class="card-body" style="padding-top:4px;padding-bottom:4px;">{{template "activity-list" .Activity}}</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <h2>Connection settings</h2>
+      <p class="text-sm text-muted">What users enter in Outlook, Thunderbird, or phone mail apps.</p>
+      <dl class="kv text-sm">
+        {{$h := or .MailHost "mail-hostname"}}
+        <dt>Incoming (IMAP)</dt><dd class="mono">{{$h}} · 993 · SSL/TLS</dd>
+        <dt>Outgoing (SMTP)</dt><dd class="mono">{{$h}} · 587 · STARTTLS</dd>
+        <dt>Username</dt><dd>Full email address</dd>
+        {{with .MailHost}}<dt>Webmail</dt><dd><a href="https://{{.}}/" target="_blank" rel="noopener">https://{{.}}/ {{icon "external"}}</a></dd>{{end}}
+      </dl>
+    </div>
+
+    <div class="card flush danger-zone" x-data="{ typed: '' }">
+      <div class="card-header"><h2>Delete domain</h2></div>
+      <div class="card-body">
+        <p class="text-sm text-muted">Permanently deletes <strong>{{$d.Name}}</strong> and every user (including their stored mail), group and alias in it. This can't be undone.</p>
+        <div class="field">
+          <label for="del-confirm">Type <span class="mono">{{$d.Name}}</span> to confirm</label>
+          <input id="del-confirm" type="text" name="confirm" x-model="typed" autocomplete="off">
+        </div>
+        <button class="btn btn-danger-solid" data-name="{{$d.Name}}" :disabled="typed !== $el.dataset.name" disabled
+          hx-delete="/domains/{{$d.Name}}" hx-include="#del-confirm">{{icon "trash"}} Delete domain</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "apikey_card"}}
+{{$d := .Domain}}
+<div class="card flush" id="apikey-card">
+  <div class="card-header">
+    <div><h2>Public API key</h2><div class="hint">Lets another system, such as a student-information system, manage this domain's users and groups over HTTPS.</div></div>
+    {{if $d.APIKey}}<span class="badge badge-green">{{icon "key"}} Active</span>{{else}}<span class="badge badge-muted">No key</span>{{end}}
+  </div>
+  <div class="card-body">
+    {{if .NewAPIKey}}
+    <div class="flash flash-success">
+      <strong>Copy this key now.</strong> It won't be shown again{{if $d.APIKey}}, and any previous key has stopped working{{end}}.
+      <div class="secret-reveal">
+        <pre class="dns-record">{{.NewAPIKey}}</pre>
+        <button type="button" class="btn" data-copy="{{.NewAPIKey}}">{{icon "copy"}} <span class="copy-label-text">Copy</span></button>
+      </div>
+    </div>
+    {{end}}
+    {{if $d.APIKey}}
+    <dl class="kv text-sm mb-4">
+      <dt>Key</dt><dd class="mono">pbd_…{{$d.APIKey.Hint}}</dd>
+      <dt>Created</dt><dd>{{$d.APIKey.CreatedAt.Format "Jan 2, 2006 15:04"}}</dd>
+      <dt>Last used</dt><dd>{{if $d.APIKey.LastUsedAt}}{{timeAgo $d.APIKey.LastUsedAt}}{{else}}Never{{end}}</dd>
+    </dl>
+    {{end}}
+    <dl class="kv text-sm">
+      <dt>Endpoint</dt><dd class="mono">https://{{or .MailHost "mail-hostname"}}/api/{{$d.Name}}/</dd>
+    </dl>
+    <pre class="dns-record mt-4">curl -X POST https://{{or .MailHost "mail-hostname"}}/api/{{$d.Name}}/mailbox \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "student1", "password": "…", "name": "Student One"}'</pre>
+  </div>
+  <div class="card-footer">
+    {{if $d.APIKey}}
+    <button class="btn btn-danger" hx-delete="/domains/{{$d.Name}}/apikey" hx-target="#apikey-card" hx-swap="outerHTML" hx-confirm="Revoke the API key for {{$d.Name}}? Anything using it stops working immediately.">Revoke</button>
+    <button class="btn btn-primary" hx-post="/domains/{{$d.Name}}/apikey" hx-target="#apikey-card" hx-swap="outerHTML" hx-confirm="Generate a new key for {{$d.Name}}? The current key stops working immediately.">{{icon "refresh"}} Regenerate key</button>
+    {{else}}
+    <button class="btn btn-primary" hx-post="/domains/{{$d.Name}}/apikey" hx-target="#apikey-card" hx-swap="outerHTML">{{icon "key"}} Generate key</button>
+    {{end}}
+  </div>
+</div>
+{{end}}

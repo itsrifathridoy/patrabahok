@@ -12,64 +12,48 @@ type AdminsPageData struct {
 	CurrentUser string
 }
 
-func (s *Server) adminsData(r *http.Request) (AdminsPageData, error) {
+func (s *Server) handleAdminsPage(w http.ResponseWriter, r *http.Request) {
 	list, err := s.admins.ListUsers(r.Context())
 	if err != nil {
-		return AdminsPageData{}, err
-	}
-	username := userFromContext(r).Username
-	return AdminsPageData{
-		Base:        Base{Title: "Admins", Active: "admins", Username: username},
-		Admins:      list,
-		CurrentUser: username,
-	}, nil
-}
-
-func (s *Server) handleAdminsPage(w http.ResponseWriter, r *http.Request) {
-	data, err := s.adminsData(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		failErr(w, r, err)
 		return
 	}
-	renderPage(w, "admins", data)
+	renderPage(w, "admins", AdminsPageData{
+		Base:        s.base(w, r, "Administrators", "admins", Crumb{Label: "Security"}, Crumb{Label: "Administrators"}),
+		Admins:      list,
+		CurrentUser: userFromContext(r).Username,
+	})
 }
 
 func (s *Server) handleAdminAdd(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		fail(w, r, http.StatusBadRequest, "Invalid form submission.")
 		return
 	}
-	username := r.FormValue("username")
+	username := formValue(r, "username")
 	password := r.FormValue("password")
 	if len(password) < 8 {
-		http.Error(w, "password must be at least 8 characters", http.StatusBadRequest)
+		fail(w, r, http.StatusBadRequest, "The password must be at least 8 characters.")
 		return
 	}
 	if err := s.admins.CreateUser(r.Context(), username, password); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		fail(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.respondAdminsTable(w, r)
+	s.record(r, "admin.create", username, "")
+	done(w, r, "/admins", "Administrator "+username+" added.")
 }
 
 func (s *Server) handleAdminDelete(w http.ResponseWriter, r *http.Request) {
 	target := r.PathValue("username")
 	if target == userFromContext(r).Username {
-		http.Error(w, "cannot remove your own account while signed in", http.StatusBadRequest)
+		fail(w, r, http.StatusBadRequest, "You can't remove your own account while signed in.")
 		return
 	}
 	if err := s.admins.DeleteUser(r.Context(), target); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		fail(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.respondAdminsTable(w, r)
-}
-
-func (s *Server) respondAdminsTable(w http.ResponseWriter, r *http.Request) {
-	data, err := s.adminsData(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	renderPartial(w, "admins", "admins_table", data)
+	s.record(r, "admin.delete", target, "")
+	done(w, r, "/admins", "Administrator "+target+" removed.")
 }

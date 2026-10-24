@@ -1,0 +1,45 @@
+# Rendered by lib/phases/90-webmail.sh. Loopback only: patrabahokd owns the public :443,
+# terminates TLS and reverse-proxies here (see cli/internal/frontdoor). Nothing listens on
+# :80 either, because certbot's standalone renewal needs that port free.
+server {
+    listen 127.0.0.1:{{PORT}};
+    server_name _;
+
+    # Recover the real client IP from patrabahokd's X-Forwarded-For (it overwrites any
+    # client-supplied value, so it can't be spoofed). Roundcube then logs failed logins
+    # "from <client IP>", in the form fail2ban's roundcube-auth filter matches.
+    set_real_ip_from 127.0.0.1;
+    real_ip_header X-Forwarded-For;
+
+    root {{ROUNDCUBE_ROOT}}/current/public_html;
+    index index.php;
+    client_max_body_size 30m;
+
+    location = /favicon.ico {
+        rewrite ^ /static.php/skins/elastic/images/favicon.ico last;
+    }
+
+    location ~ ^/(index|static)\.php(/|$) {
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+        fastcgi_param HTTPS on;
+        # REMOTE_ADDR is already the client IP (above). Passing the header on as well
+        # would make Roundcube append "(X-Forwarded-For: ...)" to its log lines, which
+        # fail2ban's filter doesn't match.
+        fastcgi_param HTTP_X_FORWARDED_FOR "";
+        fastcgi_param PHP_VALUE "upload_max_filesize=25M
+post_max_size=30M";
+        fastcgi_pass unix:{{PHP_FPM_SOCK}};
+    }
+
+    # Any other PHP entry point (installer.php in particular) is never served.
+    location ~ \.php(/|$) {
+        return 404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php$is_args$args;
+    }
+}

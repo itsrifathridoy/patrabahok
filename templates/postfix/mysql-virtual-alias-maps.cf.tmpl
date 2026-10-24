@@ -2,4 +2,23 @@ user = {{DB_READONLY_USER}}
 password = {{DB_READONLY_PASSWORD}}
 hosts = 127.0.0.1
 dbname = {{DB_NAME}}
-query = SELECT destination FROM virtual_aliases WHERE source='%s'
+# One query, so the order Postfix searches multiple maps in can't change the result.
+# Postfix joins the returned rows into one recipient list and re-expands each of them,
+# which is how nested groups work. The parts:
+#   1. plain aliases (and "@domain" catch-alls)
+#   2. group members, skipping suspended mailboxes so one suspended student doesn't
+#      bounce every post to the class
+#   3. a mailbox's forwarding target
+#   4. the mailbox itself, unless it forwards without keeping a copy or has an old-style
+#      alias row of its own. Mapping every mailbox to itself is what stops an "@domain"
+#      catch-all from swallowing mail for addresses that do exist.
+query = SELECT destination FROM virtual_aliases WHERE source = '%s'
+  UNION SELECT m.member FROM mail_group_members m JOIN mail_groups g ON g.id = m.group_id
+    WHERE g.email = '%s'
+      AND NOT EXISTS (SELECT 1 FROM virtual_users s WHERE s.email = m.member AND s.enabled = 0)
+  UNION SELECT f.destination FROM mailbox_forwards f JOIN virtual_users u ON u.email = f.email
+    WHERE f.email = '%s' AND u.enabled = 1
+  UNION SELECT u.email FROM virtual_users u
+    WHERE u.email = '%s' AND u.enabled = 1
+      AND NOT EXISTS (SELECT 1 FROM mailbox_forwards f WHERE f.email = u.email AND f.keep_copy = 0)
+      AND NOT EXISTS (SELECT 1 FROM virtual_aliases a WHERE a.source = u.email)

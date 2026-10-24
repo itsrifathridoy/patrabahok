@@ -61,6 +61,67 @@ Internet ──25/587/465──▶ postscreen (DNSBL via local unbound) ──�
                                                           IMAPS (993) ──┘  (client access)
 ```
 
+## Groups, forwarding and catch-all
+
+All three are plain Postfix virtual alias expansion driven from MariaDB. One query in
+`templates/postfix/mysql-virtual-alias-maps.cf.tmpl` returns, for an address:
+
+1. its plain alias destinations (including an `@domain` catch-all)
+2. if it's a group, its members, minus suspended mailboxes
+3. if it's a mailbox with forwarding, the forwarding target
+4. the mailbox itself, unless it forwards without keeping a copy
+
+Mapping every mailbox to itself (part 4) is what makes a catch-all safe. Without it, Postfix's
+`@domain` lookup would also capture mail for addresses that exist. Postfix re-expands every
+result, so a group whose member is another group just works (nesting).
+`virtual_alias_expansion_limit` is raised to 20000 so a school-wide group isn't truncated.
+
+**Posting policies are enforced at SMTP time** by a Postfix policy delegation service inside
+`patrabahokd` (`cli/internal/policy`, `127.0.0.1:10040`). It runs first in
+`smtpd_recipient_restrictions` on port 25 and on submission/smtps (via the
+`patrabahok_submission_recipient_restrictions` parameter, because master.cf `-o` values can't
+contain spaces), so it also applies to signed-in users. For each recipient that is a group it
+decides based on:
+
+- the authenticated SASL username if there is one, otherwise the envelope sender
+- an unauthenticated sender in a *hosted* domain is never trusted (anyone can claim it over port
+  25), so local users must sign in to post to a restricted group
+- unauthenticated loopback clients are trusted, like `permit_mynetworks`
+- `+tag` addresses are matched to the group, as Postfix itself does
+
+Anything that isn't a group gets `DUNNO`. If the service is unreachable, Postfix temp-fails
+(`smtpd_policy_service_default_action = 451`) rather than letting restricted posts through.
+Phase `55-mail-routing` applies all of this on upgrades, and makes sure `patrabahokd` is new
+enough to serve the policy service before Postfix starts relying on it.
+
+## Public HTTPS listener (:443)
+
+`patrabahokd` owns `:443` directly (`cli/internal/frontdoor`). It doesn't sit behind a separate
+web server, and it routes each request by host and path:
+
+```
+https://mta-sts.<domain>/.well-known/mta-sts.txt  ──▶ MTA-STS policy (internal/mtasts)
+https://<hostname>/api/<domain>/...               ──▶ public per-domain API (internal/publicapi)
+https://<hostname>/<anything else>                ──▶ reverse proxy to the webmail on loopback:
+                                                        Roundcube: nginx + PHP-FPM, 127.0.0.1:8081
+                                                        patrabahok Mail: Next.js, 127.0.0.1:3000
+```
+
+- TLS certificates are picked per connection by SNI. `mta-sts.*` names get their own
+  per-domain certificate, and every other name gets the mail hostname's certificate. Both reload
+  on renewal without a restart.
+- The public API's first path segment is a domain name, so it always contains a dot.
+  patrabahok Mail's own `/api/accounts`, `/api/auth`, ... routes have no dot and still go to the
+  webmail. That's how both share the `/api/` prefix.
+- The webmail backends never see the internet directly. The proxy keeps the original `Host` and
+  replaces any client-supplied `X-Forwarded-*` headers, so the client IP the backend logs (and
+  fail2ban bans) can't be spoofed.
+- Nothing listens on `:80`, because certbot's standalone HTTP-01 issuance and renewal need it.
+  That's why Roundcube's nginx binds loopback only and the distro's default site is removed.
+- Roundcube is a pinned, checksum-verified upstream release (`/opt/roundcube/releases/<version>`,
+  `current` symlink) rather than the distro package. The distro package's version differs across
+  the three supported OSes, and it pulls in Apache and interactive dbconfig-common prompts.
+
 ## Idempotency and state
 
 `bin/patrabahok-installer` runs `lib/phases/NN-*.sh` in numeric order. Each phase is a
@@ -80,8 +141,10 @@ unverified remote code itself.
 
 ## Known MVP limitations (see ROADMAP.md)
 
-- patrabahok Mail (webmail) is built and live-tested but only deployed by hand on the primary
-  server so far — not yet an installer phase, not yet on the other two OS targets
+- Webmail is now an installer phase (`90-webmail`: Roundcube or patrabahok Mail). Roundcube's
+  install was tested in a Debian 12 container (schema, nginx/PHP-FPM, login page, password-plugin
+  grants), but neither option has had a full live install with a real login on the three target
+  OSes yet
 - The Go CLI/API/dashboard is live-verified on all three supported OSes, but is built from
   source at install time (pinned/checksummed Go toolchain) rather than distributed as a
   prebuilt, checksummed release binary

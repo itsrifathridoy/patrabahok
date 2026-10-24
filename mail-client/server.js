@@ -1,8 +1,12 @@
-// Custom HTTPS server for production: terminates TLS directly (reusing the mail
-// server's own Let's Encrypt certificate) the same way patrabahokd's admin dashboard
-// does, rather than requiring a separate reverse proxy. Also hot-reloads the
-// certificate on renewal, mirroring cli/internal/webui/server.go's certReloader.
+// Custom production server, in one of two modes:
+//   - LISTEN_HOST set (how the installer deploys it): plain HTTP on that loopback
+//     address. patrabahokd's public :443 listener terminates TLS and reverse-proxies
+//     here (cli/internal/frontdoor).
+//   - otherwise: standalone HTTPS, terminating TLS directly with the mail server's own
+//     Let's Encrypt certificate and hot-reloading it on renewal, mirroring
+//     cli/internal/webui/server.go's certReloader.
 const { createServer } = require("https");
+const http = require("http");
 const { readFileSync, statSync } = require("fs");
 const next = require("next");
 
@@ -10,9 +14,10 @@ const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT || 3443);
 const certPath = process.env.TLS_CERT;
 const keyPath = process.env.TLS_KEY;
+const listenHost = process.env.LISTEN_HOST;
 
-if (!certPath || !keyPath) {
-  console.error("TLS_CERT and TLS_KEY environment variables are required.");
+if (!listenHost && (!certPath || !keyPath)) {
+  console.error("Set LISTEN_HOST (plain HTTP behind patrabahokd) or TLS_CERT and TLS_KEY (standalone HTTPS).");
   process.exit(1);
 }
 
@@ -32,6 +37,13 @@ function loadSecureContext(server) {
 }
 
 app.prepare().then(() => {
+  if (listenHost) {
+    http.createServer((req, res) => handle(req, res)).listen(port, listenHost, () => {
+      console.log(`patrabahok-mail listening on http://${listenHost}:${port} (behind patrabahokd)`);
+    });
+    return;
+  }
+
   const cert = readFileSync(certPath);
   const key = readFileSync(keyPath);
   lastMtimeMs = statSync(certPath).mtimeMs;

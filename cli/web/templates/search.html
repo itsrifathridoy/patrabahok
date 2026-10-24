@@ -1,0 +1,58 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-blue">{{icon "search"}}</div>
+  <div>
+    <h1>Search</h1>
+    <p class="subtitle">{{if .Query}}{{plural .Total "result"}} for “{{.Query}}”{{else}}Find users, groups and domains by name or address.{{end}}</p>
+  </div>
+</div>
+
+<form class="card" action="/search" method="get">
+  <div class="form-row">
+    <div class="field"><input type="search" name="q" value="{{.Query}}" placeholder="Name or address" aria-label="Search" autofocus></div>
+    <button class="btn btn-primary" type="submit">{{icon "search"}} Search</button>
+  </div>
+</form>
+
+{{if .Query}}
+{{if .Users}}
+<div class="card flush">
+  <div class="card-header"><h2>Users</h2><a class="btn btn-sm" href="/users?q={{.Query}}">See all in Users</a></div>
+  <table><tbody>
+    {{range .Users}}
+    <tr class="row-link" data-href="/users/{{pathEscape .Email}}">
+      <td>{{template "user-cell" (dict "email" .Email "name" .DisplayName "href" (printf "/users/%s" (pathEscape .Email)))}}</td>
+      <td>{{template "status-badge" .Enabled}}</td>
+    </tr>
+    {{end}}
+  </tbody></table>
+</div>
+{{end}}
+{{if .Groups}}
+<div class="card flush">
+  <div class="card-header"><h2>Groups</h2></div>
+  <table><tbody>
+    {{range .Groups}}
+    <tr class="row-link" data-href="/groups/{{pathEscape .Email}}">
+      <td><div class="entity"><span class="avatar sq tone-purple">{{icon "group"}}</span><div class="entity-text"><a class="entity-title" href="/groups/{{pathEscape .Email}}">{{.Name}}</a><div class="entity-sub">{{.Email}}</div></div></div></td>
+      <td>{{plural .MemberCount "member"}}</td>
+    </tr>
+    {{end}}
+  </tbody></table>
+</div>
+{{end}}
+{{if .Domains}}
+<div class="card flush">
+  <div class="card-header"><h2>Domains</h2></div>
+  <table><tbody>
+    {{range .Domains}}
+    <tr class="row-link" data-href="/domains/{{.Name}}"><td><div class="entity"><span class="avatar sq tone-blue">{{icon "globe"}}</span><a class="entity-title" href="/domains/{{.Name}}">{{.Name}}</a></div></td></tr>
+    {{end}}
+  </tbody></table>
+</div>
+{{end}}
+{{if eq .Total 0}}
+<div class="card">{{template "empty-state" (dict "icon" "search" "title" "Nothing found" "text" "No user, group or domain matches that. Check the spelling, or search part of an address.")}}</div>
+{{end}}
+{{end}}
+{{end}}

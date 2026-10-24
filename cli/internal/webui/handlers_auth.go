@@ -9,7 +9,7 @@ import (
 func (s *Server) handleLoginForm(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(adminauth.SessionCookieName); err == nil {
 		if _, err := s.admins.VerifySession(r.Context(), cookie.Value); err == nil {
-			http.Redirect(w, r, "/domains", http.StatusSeeOther)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 	}
@@ -37,7 +37,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, token, r.TLS != nil)
-	http.Redirect(w, r, "/domains", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

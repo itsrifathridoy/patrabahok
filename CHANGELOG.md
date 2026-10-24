@@ -4,6 +4,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Groups (distribution lists), like Google Groups: one address delivers to every member. They
+  support member/owner roles, nesting, optional external members, and a posting policy (`anyone`,
+  `organization`, `members`, `owners`) enforced at SMTP time by a new Postfix policy service in
+  `patrabahokd` (`cli/internal/policy`, `-policy-addr`). Available in the dashboard, the CLI
+  (`patrabahok group ...`), the local API (`/v1/groups`, scope `group`) and the public API
+  (`/api/{domain}/group`). Suspended members are skipped automatically.
+- Per-mailbox forwarding (optionally keeping a copy) and per-domain catch-all addresses, in the
+  dashboard, the CLI (`mailbox forward`, `domain catchall`) and the public API.
+- Audit log (`audit_log` table, dashboard page, `patrabahok audit`) covering the dashboard, the
+  CLI, API tokens and domain API keys.
+- Bulk user import from CSV in the dashboard, with generated passwords offered once as a
+  downloadable credentials file.
+- Redesigned admin dashboard: a design system with light and dark themes, self-hosted fonts and
+  an inline icon set. Navigation is grouped Directory / Organization / Security / System. New:
+  user and group profile pages, domain pages, global search, toasts, styled confirmations, a
+  mobile drawer menu, and `Origin` checks plus security headers on every response.
+- Installer phase `55-mail-routing` applies the new alias map and policy wiring on upgraded
+  servers (migration `007`).
+- Public per-domain API at `https://<hostname>/api/<domain>/...` (`cli/internal/publicapi`, see
+  docs/PUBLIC-API.md). It can create, list, get and delete mailboxes, change a mailbox's
+  password, display name or quota, enable or disable it, and manage aliases. Each domain gets one
+  API key (`cli/internal/domainkey`, migration `006`), stored as a hash and generated, regenerated
+  or revoked from the dashboard's Domains page or with `patrabahok api key generate|list|revoke`.
+  A key can only manage its own domain.
+- Mailbox display names (`virtual_users.display_name`): `patrabahok mailbox name`, shown in the
+  dashboard and returned by both APIs. Also `patrabahok mailbox enable|disable`.
+- Webmail choice at install time (`PATRABAHOK_WEBMAIL=roundcube|custom|none`, new phase
+  `90-webmail`). Roundcube 1.7.5 is a pinned upstream release on loopback nginx + PHP-FPM, with
+  self-service password change and a fail2ban jail. `custom` deploys patrabahok Mail
+  (`mail-client/`) with pinned Node.js 22 and PostgreSQL, which takes it from hand-deployed to
+  installer-managed.
+- `patrabahokd -https-addr` replaces `-mtasts-addr` (kept as an alias). The `:443` listener
+  (`cli/internal/frontdoor`) now also serves the public API and reverse-proxies the webmail
+  (`-webmail-upstream`).
+
+### Fixed
+- Setting a mailbox's quota to its current value reported "not found", because MariaDB counts an
+  unchanged row as zero affected rows.
+
 - MTA-STS policy hosting: `patrabahok mta-sts enable <domain>` (also a dashboard button and
   `POST /v1/mta-sts/{domain}/enable`) issues a Let's Encrypt certificate for `mta-sts.<domain>`
   and starts serving its policy file, closing the gap where the installer only ever printed the

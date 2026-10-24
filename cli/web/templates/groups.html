@@ -1,0 +1,102 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-purple">{{icon "group"}}</div>
+  <div>
+    <h1>Groups</h1>
+    <p class="subtitle">One address that delivers to many people, such as a class, a department or an announcement list.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary" data-open="new-group" {{if not .Domains}}disabled title="Add a domain first"{{end}}>{{icon "plus"}} Create group</button>
+  </div>
+</div>
+
+<div class="card flush" id="groups-table">
+  <form class="table-toolbar" method="get" action="/groups"
+        hx-get="/groups" hx-target="#groups-table" hx-select="#groups-table" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="input changed delay:300ms from:input[name=q], change">
+    <div class="search">{{icon "search"}}<input type="search" name="q" value="{{.Query}}" placeholder="Search groups" aria-label="Search groups"></div>
+    <select name="domain" aria-label="Domain">
+      <option value="">All domains</option>
+      {{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+  </form>
+
+  {{if .Groups}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Group</th><th>Who can post</th><th class="num">Members</th><th>Created</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Groups}}
+        <tr class="row-link" data-href="/groups/{{pathEscape .Email}}">
+          <td>
+            <div class="entity">
+              <span class="avatar sq tone-purple">{{icon "group"}}</span>
+              <div class="entity-text">
+                <a class="entity-title" href="/groups/{{pathEscape .Email}}">{{.Name}}</a>
+                <div class="entity-sub">{{.Email}}{{with .Description}} · {{.}}{{end}}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{template "policy-badge" .PostPolicy}}{{if .AllowExternal}} <span class="badge badge-muted" title="External addresses can be members">{{icon "external"}} External</span>{{end}}</td>
+          <td class="num">{{if .MemberCount}}{{.MemberCount}}{{else}}<span class="badge badge-orange">No members</span>{{end}}</td>
+          <td class="text-muted nowrap">{{.CreatedAt.Format "Jan 2, 2006"}}</td>
+          <td class="actions"><a class="btn btn-ghost btn-sm" href="/groups/{{pathEscape .Email}}">Manage {{icon "chevron-right"}}</a></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else if or .Query .Domain}}
+  {{template "empty-state" (dict "icon" "search" "title" "No groups match" "text" "Try a different search, or clear the filter.")}}
+  {{else}}
+  <div class="empty-state">
+    <div class="empty-icon">{{icon "group"}}</div>
+    <h3>No groups yet</h3>
+    <p>Create a group like <span class="mono">class10@</span> or <span class="mono">teachers@</span>. Mail sent to it reaches every member.</p>
+    {{if .Domains}}<button type="button" class="btn btn-primary" data-open="new-group">{{icon "plus"}} Create group</button>{{end}}
+  </div>
+  {{end}}
+</div>
+
+{{if .Domains}}
+<dialog class="modal wide" id="new-group" aria-labelledby="ng-title">
+  <form hx-post="/groups">
+    <div class="modal-header">
+      <span class="stat-icon tone-purple">{{icon "group"}}</span>
+      <div><h2 id="ng-title">Create a group</h2><p>You'll add members on the next screen.</p></div>
+      <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label for="ng-name">Group name</label>
+          <input id="ng-name" name="name" type="text" required maxlength="255" placeholder="Class 10 – Section A">
+        </div>
+        <div class="field">
+          <label for="ng-local">Group address</label>
+          <div class="input-group">
+            <input id="ng-local" name="local" type="text" required placeholder="class10a" pattern="[A-Za-z0-9._\-]+" title="Letters, digits, dots, dashes and underscores">
+            <span class="addon">@</span>
+            <select name="domain" aria-label="Domain">{{range .Domains}}<option value="{{.Name}}" {{if eq .Name $.Domain}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+          </div>
+        </div>
+        <div class="field span-2">
+          <label for="ng-desc">Description <span class="text-muted">(optional)</span></label>
+          <input id="ng-desc" name="description" type="text" maxlength="1000" placeholder="All students in Class 10, Section A">
+        </div>
+      </div>
+      {{template "policy-choices" "organization"}}
+      <label class="check mt-4">
+        <input type="checkbox" name="allow_external" value="1">
+        <span>Allow members outside this organization<div class="help">Lets you add addresses on other providers, e.g. parents' Gmail addresses.</div></span>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">{{icon "check"}} Create group</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+<script>if (new URLSearchParams(location.search).get("new") === "1") document.addEventListener("DOMContentLoaded", function () { var d = document.getElementById("new-group"); if (d) d.showModal(); });</script>
+{{end}}

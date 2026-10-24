@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/itsrifathridoy/patrabahok/cli/internal/adminauth"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/audit"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/authtoken"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/cloudflare"
+	"github.com/itsrifathridoy/patrabahok/cli/internal/domainkey"
 	"github.com/itsrifathridoy/patrabahok/cli/internal/mailbox"
 	"github.com/itsrifathridoy/patrabahok/cli/web"
 )
@@ -27,6 +29,8 @@ type Server struct {
 	admins     *adminauth.Store
 	tokens     *authtoken.Store
 	cloudflare *cloudflare.Store
+	domainKeys *domainkey.Store
+	audit      *audit.Store
 	mux        *http.ServeMux
 }
 
@@ -36,6 +40,8 @@ func New(db *sql.DB) *Server {
 		admins:     adminauth.NewStore(db),
 		tokens:     authtoken.NewStore(db),
 		cloudflare: cloudflare.NewStore(db),
+		domainKeys: domainkey.NewStore(db),
+		audit:      audit.NewStore(db),
 		mux:        http.NewServeMux(),
 	}
 	s.routes()
@@ -52,18 +58,49 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /login", s.handleLoginSubmit)
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
 
-	s.mux.HandleFunc("GET /", s.requireAuth(s.handleOverviewPage))
+	s.mux.HandleFunc("GET /{$}", s.requireAuth(s.handleOverviewPage))
+	s.mux.HandleFunc("GET /search", s.requireAuth(s.handleSearch))
 
 	s.mux.HandleFunc("GET /domains", s.requireAuth(s.handleDomainsPage))
 	s.mux.HandleFunc("POST /domains", s.requireAuth(s.handleDomainAdd))
+	s.mux.HandleFunc("GET /domains/{name}", s.requireAuth(s.handleDomainPage))
 	s.mux.HandleFunc("DELETE /domains/{name}", s.requireAuth(s.handleDomainDelete))
+	s.mux.HandleFunc("POST /domains/{name}/catchall", s.requireAuth(s.handleDomainCatchAll))
 	s.mux.HandleFunc("POST /domains/cloudflare-apply", s.requireAuth(s.handleDomainsCloudflareApply))
+	s.mux.HandleFunc("POST /domains/{name}/apikey", s.requireAuth(s.handleDomainAPIKeyGenerate))
+	s.mux.HandleFunc("DELETE /domains/{name}/apikey", s.requireAuth(s.handleDomainAPIKeyRevoke))
 
-	s.mux.HandleFunc("GET /mailboxes", s.requireAuth(s.handleMailboxesPage))
-	s.mux.HandleFunc("POST /mailboxes", s.requireAuth(s.handleMailboxAdd))
-	s.mux.HandleFunc("DELETE /mailboxes/{email}", s.requireAuth(s.handleMailboxDelete))
-	s.mux.HandleFunc("PUT /mailboxes/{email}/password", s.requireAuth(s.handleMailboxPassword))
-	s.mux.HandleFunc("PUT /mailboxes/{email}/quota", s.requireAuth(s.handleMailboxQuota))
+	s.mux.HandleFunc("GET /users", s.requireAuth(s.handleUsersPage))
+	s.mux.HandleFunc("POST /users", s.requireAuth(s.handleUserCreate))
+	s.mux.HandleFunc("GET /users/import", s.requireAuth(s.handleUsersImportPage))
+	s.mux.HandleFunc("POST /users/import", s.requireAuth(s.handleUsersImport))
+	s.mux.HandleFunc("GET /users/{email}", s.requireAuth(s.handleUserPage))
+	s.mux.HandleFunc("DELETE /users/{email}", s.requireAuth(s.handleUserDelete))
+	s.mux.HandleFunc("POST /users/{email}/profile", s.requireAuth(s.handleUserProfile))
+	s.mux.HandleFunc("POST /users/{email}/password", s.requireAuth(s.handleUserPassword))
+	s.mux.HandleFunc("POST /users/{email}/quota", s.requireAuth(s.handleUserQuota))
+	s.mux.HandleFunc("POST /users/{email}/status", s.requireAuth(s.handleUserStatus))
+	s.mux.HandleFunc("POST /users/{email}/forward", s.requireAuth(s.handleUserForward))
+	s.mux.HandleFunc("DELETE /users/{email}/forward", s.requireAuth(s.handleUserForwardClear))
+	s.mux.HandleFunc("POST /users/{email}/aliases", s.requireAuth(s.handleUserAliasAdd))
+	s.mux.HandleFunc("DELETE /users/{email}/aliases/{alias}", s.requireAuth(s.handleUserAliasRemove))
+	s.mux.HandleFunc("POST /users/{email}/groups", s.requireAuth(s.handleUserGroupAdd))
+	s.mux.HandleFunc("DELETE /users/{email}/groups/{group}", s.requireAuth(s.handleUserGroupRemove))
+	// Pre-redesign URL.
+	s.mux.HandleFunc("GET /mailboxes", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/users", http.StatusMovedPermanently)
+	})
+
+	s.mux.HandleFunc("GET /groups", s.requireAuth(s.handleGroupsPage))
+	s.mux.HandleFunc("POST /groups", s.requireAuth(s.handleGroupCreate))
+	s.mux.HandleFunc("GET /groups/{email}", s.requireAuth(s.handleGroupPage))
+	s.mux.HandleFunc("POST /groups/{email}", s.requireAuth(s.handleGroupUpdate))
+	s.mux.HandleFunc("DELETE /groups/{email}", s.requireAuth(s.handleGroupDelete))
+	s.mux.HandleFunc("POST /groups/{email}/members", s.requireAuth(s.handleGroupMembersAdd))
+	s.mux.HandleFunc("POST /groups/{email}/members/{member}/role", s.requireAuth(s.handleGroupMemberRole))
+	s.mux.HandleFunc("DELETE /groups/{email}/members/{member}", s.requireAuth(s.handleGroupMemberRemove))
+
+	s.mux.HandleFunc("GET /audit", s.requireAuth(s.handleAuditPage))
 
 	s.mux.HandleFunc("GET /aliases", s.requireAuth(s.handleAliasesPage))
 	s.mux.HandleFunc("POST /aliases", s.requireAuth(s.handleAliasAdd))
@@ -148,13 +185,20 @@ func (c *certReloader) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, e
 	return c.cert, nil
 }
 
+// CertSource returns a tls.Config.GetCertificate function for the certificate at
+// certPath/keyPath, reloaded automatically on renewal — the same one the dashboard
+// uses, shared with patrabahokd's public HTTPS listener (internal/frontdoor).
+func CertSource(certPath, keyPath string) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return newCertReloader(certPath, keyPath).GetCertificate
+}
+
 // ServeTLS starts the HTTPS listener for the dashboard on addr, using the
 // certificate at certPath/keyPath (reloaded automatically on renewal).
 func (s *Server) ServeTLS(addr, certPath, keyPath string) error {
 	reloader := newCertReloader(certPath, keyPath)
 	srv := &http.Server{
 		Addr:         addr,
-		Handler:      s.mux,
+		Handler:      s.secure(s.mux),
 		TLSConfig:    &tls.Config{GetCertificate: reloader.GetCertificate, MinVersion: tls.VersionTLS12},
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,

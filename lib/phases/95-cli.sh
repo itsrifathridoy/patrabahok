@@ -9,6 +9,8 @@ PATRABAHOK_HOME="${PATRABAHOK_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 
 . "$PATRABAHOK_HOME/lib/core/secrets.sh"
 # shellcheck source=../core/template.sh
 . "$PATRABAHOK_HOME/lib/core/template.sh"
+# shellcheck source=../core/patrabahokd.sh
+. "$PATRABAHOK_HOME/lib/core/patrabahokd.sh"
 state_init
 
 # Pinned upstream Go toolchain — deliberately NOT the distro's own golang-go package,
@@ -114,8 +116,7 @@ phase_run() {
   mkdir -p /var/lib/patrabahok/dns-records
   chmod 700 /var/lib/patrabahok/dns-records
 
-  render_template "$PATRABAHOK_HOME/templates/systemd/patrabahokd.service.tmpl" /etc/systemd/system/patrabahokd.service \
-    "TLS_CERT=${tls_cert_dir}/fullchain.pem" "TLS_KEY=${tls_cert_dir}/privkey.pem"
+  render_patrabahokd_unit
   ufw allow 8443/tcp comment 'patrabahok-dashboard' >/dev/null 2>&1 || true
 
   systemctl daemon-reload
@@ -136,6 +137,7 @@ phase_run() {
   ensure_initial_webadmin
 
   log_ok "Installed patrabahok CLI, patrabahokd API (unix:///run/patrabahok/api.sock), and admin dashboard (https://<hostname>:8443/)"
+  log_ok "Public per-domain API: https://$(state_get hostname)/api/<domain>/mailbox (create a domain's key in the dashboard's Domains page, or: patrabahok api key generate <domain>)"
   return 0
 }
 

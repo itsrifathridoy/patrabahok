@@ -27,9 +27,16 @@ for exactly what the bootstrap does and how it verifies what it downloads.
 - ufw (default-deny) + fail2ban (sshd, postfix, dovecot jails, progressive ban times)
 - `patrabahok` CLI + `patrabahokd` local API (Unix socket, token-scoped): `domain`, `mailbox`,
   `alias`, `dkim`, `dns`, `queue`, `status`
-- A custom admin web dashboard at `https://<hostname>:8443/` — server-rendered Go, no Node
-  build step, no CDN dependency, its own login system (argon2id + sessions), reusing the mail
+- A modern admin web dashboard at `https://<hostname>:8443/` (light/dark, mobile-friendly) —
+  server-rendered Go, no Node build step, no CDN dependency, its own login system (argon2id + sessions), reusing the mail
   server's own TLS certificate
+- Google Workspace-style directory: users with storage limits, suspend/restore, forwarding and
+  alternate addresses; **groups** (distribution lists with member/owner roles, nesting, external
+  members, and "who can post" policies enforced by Postfix); catch-all addresses; bulk CSV user
+  import; and an audit log of every change
+- Webmail at `https://<hostname>/`, chosen at install time: Roundcube or patrabahok Mail
+- A public per-domain HTTPS API (`https://<hostname>/api/<domain>/mailbox`) for creating and
+  managing a domain's mailboxes from another system, with one API key per domain
 
 ## Requirements
 
@@ -55,6 +62,7 @@ non-interactive/scripted install, and how to add more domains and mailboxes afte
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — design and component choices
 - [docs/CLI.md](docs/CLI.md) — `patrabahok` command reference
 - [docs/API.md](docs/API.md) — `patrabahokd` JSON API reference (every endpoint, request/response bodies)
+- [docs/PUBLIC-API.md](docs/PUBLIC-API.md) — the public per-domain mailbox API and its API keys
 - [docs/WEB-UI.md](docs/WEB-UI.md) — the admin dashboard: access, first login, security model
 - [docs/SECURITY.md](docs/SECURITY.md) — threat model and the curl\|sh trust model
 - [docs/DNS-RECORDS.md](docs/DNS-RECORDS.md) — every DNS record explained

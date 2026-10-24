@@ -52,7 +52,10 @@ smtpd_relay_restrictions =
     permit_sasl_authenticated,
     defer_unauth_destination
 
+# The policy service enforces group posting policies (cli/internal/policy). Kept in sync
+# with lib/core/mailrouting.sh, which applies the same settings on upgrades.
 smtpd_recipient_restrictions =
+    check_policy_service inet:127.0.0.1:10040,
     permit_mynetworks,
     permit_sasl_authenticated,
     reject_unauth_destination,
@@ -81,6 +84,8 @@ anvil_rate_time_unit = 60s
 virtual_mailbox_domains = mysql:/etc/postfix/mysql-virtual-mailbox-domains.cf
 virtual_mailbox_maps = mysql:/etc/postfix/mysql-virtual-mailbox-maps.cf
 virtual_alias_maps = mysql:/etc/postfix/mysql-virtual-alias-maps.cf
+virtual_alias_expansion_limit = 20000
+smtpd_policy_service_default_action = 451 4.3.5 Group policy service unavailable, try again later
 virtual_transport = lmtp:unix:private/dovecot-lmtp
 virtual_mailbox_base = /var/mail/vhosts
 virtual_uid_maps = static:5000

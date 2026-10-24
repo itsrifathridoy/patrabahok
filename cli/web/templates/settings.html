@@ -1,25 +1,46 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-blue">{{template "icon-gear"}}</div>
+  <div class="page-header-icon tone-blue">{{icon "gear"}}</div>
   <div>
     <h1>Settings</h1>
-    <p class="subtitle">Signed in as {{.Username}}.</p>
+    <p class="subtitle">Your administrator account{{with .MailHost}} on {{.}}{{end}}.</p>
   </div>
 </div>
 
-<div class="card">
-  <h2>Change your password</h2>
-  <div id="settings-result"></div>
-  <form hx-post="/settings/password" hx-target="#settings-result" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
-    <div class="field">
-      <label for="current_password">Current password</label>
-      <input type="password" id="current_password" name="current_password" required>
+<div class="grid grid-main-side">
+  <form class="card flush" hx-post="/settings/password">
+    <div class="card-header"><div><h2>Change your password</h2><div class="hint">Use at least 8 characters. A passphrase is easier to remember and harder to guess.</div></div></div>
+    <div class="card-body">
+      <div class="field">
+        <label for="current_password">Current password</label>
+        <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label for="new_password">New password</label>
+          <input type="password" id="new_password" name="new_password" required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label for="confirm_password">Confirm new password</label>
+          <input type="password" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password">
+        </div>
+      </div>
     </div>
-    <div class="field">
-      <label for="new_password">New password</label>
-      <input type="password" id="new_password" name="new_password" required minlength="8">
-    </div>
-    <button type="submit" class="btn btn-primary">Update password</button>
+    <div class="card-footer"><button type="submit" class="btn btn-primary">Update password</button></div>
   </form>
+
+  <div class="stack">
+    <div class="card">
+      <div class="flex items-center gap-3">
+        <span class="avatar lg {{avatarClass .Username}}">{{initials .Username}}</span>
+        <div><h2 class="mb-0">{{.Username}}</h2><div class="text-sm text-muted">Administrator · full access</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Appearance</h2>
+      <p class="text-sm text-muted">The dashboard follows your system's light or dark setting. Use the button in the top bar to override it on this browser.</p>
+      <button type="button" class="btn" id="theme-toggle-settings" onclick="document.getElementById('theme-toggle').click()">{{icon "moon"}} Toggle dark mode</button>
+    </div>
+  </div>
 </div>
 {{end}}

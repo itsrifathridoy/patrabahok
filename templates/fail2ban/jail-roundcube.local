@@ -1,0 +1,7 @@
+# Installed by lib/phases/90-webmail.sh when Roundcube is the webmail. The roundcube-auth
+# filter ships with fail2ban. Roundcube logs the real client IP because nginx restores
+# it from patrabahokd's X-Forwarded-For (templates/nginx/roundcube.conf.tmpl).
+[roundcube-auth]
+enabled = true
+port = http,https
+logpath = /var/log/roundcube/errors.log

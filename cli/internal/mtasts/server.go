@@ -2,8 +2,6 @@ package mtasts
 
 import (
 	"crypto/tls"
-	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -99,23 +97,16 @@ func Handler() http.Handler {
 	})
 }
 
-// ListenAndServeTLS starts the MTA-STS policy-hosting listener on addr (":443" in
-// production). Every certificate is picked per-connection by SNI (multiCertReloader),
-// so domains can be enabled and their certificates renewed without a restart.
-func ListenAndServeTLS(addr string) error {
-	reloader := newMultiCertReloader()
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      Handler(),
-		TLSConfig:    &tls.Config{GetCertificate: reloader.GetCertificate, MinVersion: tls.VersionTLS12},
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		// Silences per-connection handshake-failure logging on the default logger: :443
-		// draws constant unsolicited TLS/SNI probing from internet-wide scanners that
-		// will never present a "mta-sts.*" SNI, and every one of those is otherwise a log
-		// line for a rejection that isn't a real operational problem.
-		ErrorLog: log.New(io.Discard, "", 0),
-	}
-	log.Printf("mtasts: listening on https://%s (serving enabled domains' /.well-known/mta-sts.txt)", addr)
-	return srv.ListenAndServeTLS("", "")
+// CertSource returns a tls.Config.GetCertificate function serving the per-domain
+// mta-sts.<domain> certificates (picked by SNI, reloaded on renewal), for use by
+// patrabahokd's shared public HTTPS listener (internal/frontdoor). It returns an error
+// for any server name that isn't "mta-sts.*" so the caller can fall back to another
+// certificate.
+func CertSource() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return newMultiCertReloader().GetCertificate
+}
+
+// IsPolicyHost reports whether a request's Host header is an MTA-STS policy host.
+func IsPolicyHost(host string) bool {
+	return strings.HasPrefix(strings.ToLower(host), "mta-sts.")
 }

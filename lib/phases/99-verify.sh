@@ -33,8 +33,12 @@ phase_run() {
     fi
   fi
 
-  local svc
-  for svc in postfix dovecot rspamd redis-server clamav-daemon fail2ban unbound mariadb patrabahokd; do
+  local svc webmail_services=()
+  case "$(state_get webmail)" in
+    roundcube) webmail_services=(nginx "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)-fpm") ;;
+    custom) webmail_services=(postgresql patrabahok-mail) ;;
+  esac
+  for svc in postfix dovecot rspamd redis-server clamav-daemon fail2ban unbound mariadb patrabahokd "${webmail_services[@]}"; do
     if systemctl is-active --quiet "$svc"; then
       log_ok "service active: $svc"
     else
@@ -49,6 +53,38 @@ phase_run() {
     else
       log_error "patrabahokd API socket exists but did not respond to /healthz"
       ok=0
+    fi
+  fi
+
+  # Postfix consults this for every recipient; if it's down, group mail is deferred.
+  if timeout 3 bash -c 'exec 3<>/dev/tcp/127.0.0.1/10040' 2>/dev/null; then
+    log_ok "Group policy service listening on 127.0.0.1:10040"
+  else
+    log_error "Group policy service is not listening on 127.0.0.1:10040 (check 'journalctl -u patrabahokd')"
+    ok=0
+  fi
+
+  local mail_hostname code
+  mail_hostname="$(state_get hostname)"
+  if [ -n "$mail_hostname" ] && [ -n "$domain" ]; then
+    # Over loopback but under the real hostname, so SNI and certificate verification
+    # behave exactly as they do for a client on the internet.
+    code="$(curl -s -o /dev/null -w '%{http_code}' --resolve "${mail_hostname}:443:127.0.0.1" \
+      "https://${mail_hostname}/api/${domain}/mailbox" 2>/dev/null || true)"
+    if [ "$code" = "401" ]; then
+      log_ok "Public API responding at https://${mail_hostname}/api/${domain}/ (rejects requests without a key)"
+    else
+      log_error "Public API at https://${mail_hostname}/api/${domain}/mailbox returned HTTP ${code:-<no response>} (expected 401 without a key)"
+      ok=0
+    fi
+
+    if [ -n "$(state_get webmail_upstream)" ]; then
+      code="$(curl -s -o /dev/null -w '%{http_code}' --resolve "${mail_hostname}:443:127.0.0.1" \
+        "https://${mail_hostname}/" 2>/dev/null || true)"
+      case "$code" in
+        2??|3??) log_ok "Webmail ($(state_get webmail)) responding at https://${mail_hostname}/" ;;
+        *) log_error "Webmail at https://${mail_hostname}/ returned HTTP ${code:-<no response>}"; ok=0 ;;
+      esac
     fi
   fi
 
