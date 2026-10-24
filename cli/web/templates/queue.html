@@ -17,7 +17,7 @@
 {{if .Error}}<div class="flash flash-error"><strong>Couldn't read the queue:</strong> {{.Error}}</div>{{end}}
 
 <div class="stat-grid stat-grid-3">
-  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Being delivered</div><div class="stat-value">{{.Active}}</div></div><span class="stat-icon tone-blue">{{icon "send"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Being delivered</div><div class="stat-value">{{.Delivering}}</div></div><span class="stat-icon tone-blue">{{icon "send"}}</span></div></div>
   <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Deferred (will retry)</div><div class="stat-value">{{.Deferred}}</div></div><span class="stat-icon tone-orange">{{icon "clock"}}</span></div></div>
   <div class="stat-card"><div class="stat-top"><div><div class="stat-label">On hold</div><div class="stat-value">{{.Hold}}</div></div><span class="stat-icon tone-neutral">{{icon "pause"}}</span></div></div>
 </div>

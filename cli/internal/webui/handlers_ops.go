@@ -217,10 +217,12 @@ type QueuePageData struct {
 	Base
 	Messages []ops.QueuedMessage
 	Deferred int
-	Active   int
-	Hold     int
-	Error    string
-	Now      time.Time
+	// Delivering, not "Active": a field named Active would shadow Base.Active, which
+	// the layout uses to highlight the current nav item.
+	Delivering int
+	Hold       int
+	Error      string
+	Now        time.Time
 }
 
 func (s *Server) handleQueuePage(w http.ResponseWriter, r *http.Request) {
@@ -240,7 +242,7 @@ func (s *Server) handleQueuePage(w http.ResponseWriter, r *http.Request) {
 		case "hold":
 			data.Hold++
 		default:
-			data.Active++
+			data.Delivering++
 		}
 	}
 	renderPage(w, "queue", data)
