@@ -47,6 +47,26 @@ phase_run() {
     fi
   done
 
+  # PHP serves the webmail: no pending PHP security updates, and FPM running the
+  # installed (patched) binary rather than one replaced underneath it.
+  if [ -n "${webmail_services[*]}" ] && command -v php >/dev/null 2>&1; then
+    local php_ver fpm_bin started pending
+    php_ver="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null)"
+    pending="$(apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | awk '/^Inst php/ {print $2}' | tr '\n' ' ')"
+    if [ -n "$pending" ]; then
+      log_error "PHP security/bug-fix updates are pending: ${pending}(run: apt-get install --only-upgrade ${pending})"
+      ok=0
+    else
+      log_ok "PHP packages are up to date ($(dpkg-query -W -f='${Version}' "php${php_ver}-fpm" 2>/dev/null))"
+    fi
+    fpm_bin="/usr/sbin/php-fpm${php_ver}"
+    started="$(systemctl show "php${php_ver}-fpm" -p ActiveEnterTimestamp --value 2>/dev/null)"
+    if [ -x "$fpm_bin" ] && [ -n "$started" ] && [ "$(stat -c %Y "$fpm_bin")" -gt "$(date -d "$started" +%s 2>/dev/null || echo 0)" ]; then
+      log_error "PHP-FPM is still running the old binary after an upgrade (run: systemctl restart php${php_ver}-fpm)"
+      ok=0
+    fi
+  fi
+
   if [ -S /run/patrabahok/api.sock ]; then
     if curl -fsS --unix-socket /run/patrabahok/api.sock http://localhost/healthz >/dev/null 2>&1; then
       log_ok "patrabahokd API responding on /run/patrabahok/api.sock"

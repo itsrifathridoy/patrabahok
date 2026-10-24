@@ -123,6 +123,14 @@ IP from `patrabahokd`'s `X-Forwarded-For`, which `patrabahokd` always overwrites
 can't be spoofed. That lets fail2ban's `roundcube-auth` jail ban the real address behind repeated
 failed logins.
 
+PHP runs the webmail and is internet-facing, so it is kept on the distro's newest security
+build: phase 90 upgrades the PHP packages on every run, daily unattended security upgrades are
+enabled, and an apt hook (`/usr/local/sbin/patrabahok-php-restart-if-updated`) restarts
+PHP-FPM as soon as an upgrade replaces its binary. Distros backport fixes without changing the
+PHP version (a patched Ubuntu 24.04 still reports 8.3.6), so check the package version
+(`dpkg -l 'php*-fpm'`) against your distro's security notice, not `php -v`.
+`patrabahok-installer verify` reports pending PHP updates and a PHP-FPM that wasn't restarted.
+
 patrabahok Webmail's `patrabahok_guard` plugin adds two protections in the webmail itself:
 
 - **Attachments** are streamed to clamd (the one phase 70 installs) over its local socket with

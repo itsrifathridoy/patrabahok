@@ -11,6 +11,48 @@ curl -X POST https://mail.example.edu/api/example.edu/mailbox \
      -d '{"username": "student1", "password": "s3cret-pass", "name": "Student One"}'
 ```
 
+## Quick start
+
+1. **Create a key** for your domain: dashboard → **Domains** → your domain → **Public API key →
+   Generate key**, or `patrabahok api key generate example.edu` on the server. Copy it now; it's
+   shown only once.
+2. **Store it as a secret** in the application that will call the API, for example an
+   environment variable `PATRABAHOK_API_KEY`, never in source code or front-end JavaScript.
+3. **Point the application at** `https://<mail hostname>/api/<your domain>/` (for example
+   `https://mail.example.edu/api/example.edu/`).
+4. **Check the connection** by listing mailboxes. `200` means the key works:
+
+   ```sh
+   curl -s https://mail.example.edu/api/example.edu/mailbox -H "Authorization: Bearer $PATRABAHOK_API_KEY"
+   ```
+
+Then use one of the [ready-made clients](#client-libraries) below, or call the endpoints directly.
+
+## Endpoint summary
+
+| Method | Path (under `/api/{domain}`) | Does | Success |
+|---|---|---|---|
+| `POST` | `/mailbox` | Create a mailbox | `201` mailbox |
+| `GET` | `/mailbox` | List mailboxes | `200` array |
+| `GET` | `/mailbox/{username}` | Get a mailbox | `200` mailbox |
+| `PUT` | `/mailbox/{username}/password` | Change password | `200` mailbox |
+| `PUT` | `/mailbox/{username}/name` | Change display name | `200` mailbox |
+| `PUT` | `/mailbox/{username}/quota` | Change quota | `200` mailbox |
+| `PUT` | `/mailbox/{username}/status` | Enable / disable | `200` mailbox |
+| `PUT` | `/mailbox/{username}/forward` | Forward incoming mail | `200` |
+| `DELETE` | `/mailbox/{username}/forward` | Stop forwarding | `204` |
+| `DELETE` | `/mailbox/{username}` | Delete mailbox **and its mail** | `204` |
+| `GET` | `/group` | List groups | `200` array |
+| `POST` | `/group` | Create a group | `201` group |
+| `GET` | `/group/{name}` | Get a group with members | `200` group |
+| `PUT` | `/group/{name}` | Change group settings | `200` group |
+| `DELETE` | `/group/{name}` | Delete a group | `204` |
+| `POST` | `/group/{name}/members` | Add members (bulk) | `200` per-address results |
+| `DELETE` | `/group/{name}/members/{address}` | Remove a member | `204` |
+| `GET` | `/alias` | List aliases | `200` array |
+| `POST` | `/alias` | Add an alias | `201` alias |
+| `DELETE` | `/alias` | Remove an alias | `204` |
+
 This is a separate API from the local [`patrabahokd` API](API.md). The local one listens on a Unix
 socket, uses server-wide tokens and can manage everything (domains, DKIM, queue). This one is
 reachable from the internet, but each key can only manage its own domain's mailboxes and aliases.
@@ -264,6 +306,330 @@ Same body as adding one. Returns `204`.
 | 200 / 201 / 204 | Success |
 | 400 | Invalid JSON, username, password, name or quota (the message says which) |
 | 401 / 403 | See [API keys](#api-keys) |
-| 404 | No such mailbox or endpoint |
-| 409 | Mailbox already exists |
+| 404 | No such mailbox, group, member or endpoint |
+| 409 | The address is already taken (mailbox, alias or group) |
 | 500 | Server-side failure (details are in `journalctl -u patrabahokd`, not in the response) |
+
+## Integration guide
+
+### Client libraries
+
+Each of these is a complete, dependency-light client you can copy into your application. They
+send the key, decode JSON, and turn API errors into exceptions that carry the HTTP status and the
+server's message.
+
+#### JavaScript / TypeScript (Node.js 18+, Deno, Bun; uses `fetch`)
+
+```js
+// patrabahok.js
+export class PatrabahokError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+
+export class Patrabahok {
+  /** @param {{host: string, domain: string, apiKey: string, timeoutMs?: number}} opts */
+  constructor({ host, domain, apiKey, timeoutMs = 15000 }) {
+    this.base = `https://${host}/api/${encodeURIComponent(domain)}`;
+    this.apiKey = apiKey;
+    this.timeoutMs = timeoutMs;
+  }
+
+  async request(method, path, body) {
+    const res = await fetch(this.base + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new PatrabahokError(res.status, data.error || res.statusText);
+    return data;
+  }
+
+  // mailboxes
+  listMailboxes()                  { return this.request('GET', '/mailbox'); }
+  getMailbox(u)                    { return this.request('GET', `/mailbox/${encodeURIComponent(u)}`); }
+  createMailbox(u, password, name, quota) {
+    return this.request('POST', '/mailbox', { username: u, password, name, quota });
+  }
+  setPassword(u, password)         { return this.request('PUT', `/mailbox/${encodeURIComponent(u)}/password`, { password }); }
+  setName(u, name)                 { return this.request('PUT', `/mailbox/${encodeURIComponent(u)}/name`, { name }); }
+  setQuota(u, quota)               { return this.request('PUT', `/mailbox/${encodeURIComponent(u)}/quota`, { quota }); }
+  setEnabled(u, enabled)           { return this.request('PUT', `/mailbox/${encodeURIComponent(u)}/status`, { enabled }); }
+  setForward(u, destination, keep_copy = true) {
+    return this.request('PUT', `/mailbox/${encodeURIComponent(u)}/forward`, { destination, keep_copy });
+  }
+  clearForward(u)                  { return this.request('DELETE', `/mailbox/${encodeURIComponent(u)}/forward`); }
+  deleteMailbox(u)                 { return this.request('DELETE', `/mailbox/${encodeURIComponent(u)}`); }
+
+  // groups
+  listGroups()                     { return this.request('GET', '/group'); }
+  getGroup(n)                      { return this.request('GET', `/group/${encodeURIComponent(n)}`); }
+  createGroup(group)               { return this.request('POST', '/group', group); }
+  updateGroup(n, changes)          { return this.request('PUT', `/group/${encodeURIComponent(n)}`, changes); }
+  deleteGroup(n)                   { return this.request('DELETE', `/group/${encodeURIComponent(n)}`); }
+  addMembers(n, members, role = 'member') {
+    return this.request('POST', `/group/${encodeURIComponent(n)}/members`, { members, role });
+  }
+  removeMember(n, address)         { return this.request('DELETE', `/group/${encodeURIComponent(n)}/members/${encodeURIComponent(address)}`); }
+
+  // aliases
+  listAliases()                    { return this.request('GET', '/alias'); }
+  addAlias(source, destination)    { return this.request('POST', '/alias', { source, destination }); }
+  removeAlias(source, destination) { return this.request('DELETE', '/alias', { source, destination }); }
+}
+```
+
+```js
+import { Patrabahok, PatrabahokError } from './patrabahok.js';
+
+const mail = new Patrabahok({
+  host: 'mail.example.edu',
+  domain: 'example.edu',
+  apiKey: process.env.PATRABAHOK_API_KEY,
+});
+
+try {
+  const box = await mail.createMailbox('student1', 'Init-Pass-2026!', 'Student One', '2G');
+  console.log('created', box.email);
+} catch (e) {
+  if (e instanceof PatrabahokError && e.status === 409) console.log('already exists');
+  else throw e;
+}
+```
+
+#### Python 3 (`requests`)
+
+```python
+# patrabahok.py
+import requests
+from urllib.parse import quote
+
+
+class PatrabahokError(Exception):
+    def __init__(self, status, message):
+        super().__init__(f"{status}: {message}")
+        self.status = status
+        self.message = message
+
+
+class Patrabahok:
+    def __init__(self, host, domain, api_key, timeout=15):
+        self.base = f"https://{host}/api/{quote(domain)}"
+        self.timeout = timeout
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {api_key}"
+
+    def request(self, method, path, body=None):
+        r = self.session.request(method, self.base + path, json=body, timeout=self.timeout)
+        if r.status_code == 204:
+            return None
+        try:
+            data = r.json()
+        except ValueError:
+            data = {}
+        if not r.ok:
+            raise PatrabahokError(r.status_code, data.get("error", r.reason))
+        return data
+
+    # mailboxes
+    def list_mailboxes(self):                 return self.request("GET", "/mailbox")
+    def get_mailbox(self, u):                 return self.request("GET", f"/mailbox/{quote(u)}")
+    def create_mailbox(self, u, password, name=None, quota=None):
+        body = {"username": u, "password": password}
+        if name is not None: body["name"] = name
+        if quota is not None: body["quota"] = quota
+        return self.request("POST", "/mailbox", body)
+    def set_password(self, u, password):      return self.request("PUT", f"/mailbox/{quote(u)}/password", {"password": password})
+    def set_name(self, u, name):              return self.request("PUT", f"/mailbox/{quote(u)}/name", {"name": name})
+    def set_quota(self, u, quota):            return self.request("PUT", f"/mailbox/{quote(u)}/quota", {"quota": quota})
+    def set_enabled(self, u, enabled):        return self.request("PUT", f"/mailbox/{quote(u)}/status", {"enabled": enabled})
+    def set_forward(self, u, destination, keep_copy=True):
+        return self.request("PUT", f"/mailbox/{quote(u)}/forward", {"destination": destination, "keep_copy": keep_copy})
+    def clear_forward(self, u):               return self.request("DELETE", f"/mailbox/{quote(u)}/forward")
+    def delete_mailbox(self, u):              return self.request("DELETE", f"/mailbox/{quote(u)}")
+
+    # groups
+    def list_groups(self):                    return self.request("GET", "/group")
+    def get_group(self, n):                   return self.request("GET", f"/group/{quote(n)}")
+    def create_group(self, **group):          return self.request("POST", "/group", group)
+    def update_group(self, n, **changes):     return self.request("PUT", f"/group/{quote(n)}", changes)
+    def delete_group(self, n):                return self.request("DELETE", f"/group/{quote(n)}")
+    def add_members(self, n, members, role="member"):
+        return self.request("POST", f"/group/{quote(n)}/members", {"members": members, "role": role})
+    def remove_member(self, n, address):      return self.request("DELETE", f"/group/{quote(n)}/members/{quote(address)}")
+
+    # aliases
+    def list_aliases(self):                   return self.request("GET", "/alias")
+    def add_alias(self, source, destination): return self.request("POST", "/alias", {"source": source, "destination": destination})
+    def remove_alias(self, source, destination):
+        return self.request("DELETE", "/alias", {"source": source, "destination": destination})
+```
+
+```python
+import os
+from patrabahok import Patrabahok, PatrabahokError
+
+mail = Patrabahok("mail.example.edu", "example.edu", os.environ["PATRABAHOK_API_KEY"])
+try:
+    print(mail.create_mailbox("student1", "Init-Pass-2026!", "Student One")["email"])
+except PatrabahokError as e:
+    if e.status != 409:
+        raise
+```
+
+#### PHP 8 (cURL; works in Laravel, WordPress, plain PHP)
+
+```php
+<?php
+// Patrabahok.php
+final class PatrabahokException extends RuntimeException {}
+
+final class Patrabahok
+{
+    private string $base;
+
+    public function __construct(string $host, string $domain, private string $apiKey, private int $timeout = 15)
+    {
+        $this->base = 'https://' . $host . '/api/' . rawurlencode($domain);
+    }
+
+    public function request(string $method, string $path, ?array $body = null): ?array
+    {
+        $ch = curl_init($this->base . $path);
+        $headers = ['Authorization: Bearer ' . $this->apiKey, 'Accept: application/json'];
+        if ($body !== null) {
+            $headers[] = 'Content-Type: application/json';
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_THROW_ON_ERROR));
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $this->timeout,
+        ]);
+        $raw = curl_exec($ch);
+        if ($raw === false) {
+            throw new PatrabahokException('connection failed: ' . curl_error($ch), 0);
+        }
+        $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if ($status === 204) {
+            return null;
+        }
+        $data = json_decode($raw, true) ?? [];
+        if ($status >= 400) {
+            throw new PatrabahokException($data['error'] ?? "HTTP $status", $status);
+        }
+        return $data;
+    }
+
+    public function createMailbox(string $u, string $password, ?string $name = null, ?string $quota = null): array
+    {
+        return $this->request('POST', '/mailbox', array_filter(
+            ['username' => $u, 'password' => $password, 'name' => $name, 'quota' => $quota],
+            fn ($v) => $v !== null
+        ));
+    }
+    public function getMailbox(string $u): array      { return $this->request('GET', '/mailbox/' . rawurlencode($u)); }
+    public function listMailboxes(): array            { return $this->request('GET', '/mailbox'); }
+    public function setPassword(string $u, string $p): array { return $this->request('PUT', '/mailbox/' . rawurlencode($u) . '/password', ['password' => $p]); }
+    public function setName(string $u, string $n): array     { return $this->request('PUT', '/mailbox/' . rawurlencode($u) . '/name', ['name' => $n]); }
+    public function setQuota(string $u, string $q): array    { return $this->request('PUT', '/mailbox/' . rawurlencode($u) . '/quota', ['quota' => $q]); }
+    public function setEnabled(string $u, bool $on): array   { return $this->request('PUT', '/mailbox/' . rawurlencode($u) . '/status', ['enabled' => $on]); }
+    public function deleteMailbox(string $u): void           { $this->request('DELETE', '/mailbox/' . rawurlencode($u)); }
+    public function addMembers(string $group, array $members, string $role = 'member'): array
+    {
+        return $this->request('POST', '/group/' . rawurlencode($group) . '/members', ['members' => $members, 'role' => $role]);
+    }
+}
+```
+
+```php
+$mail = new Patrabahok('mail.example.edu', 'example.edu', getenv('PATRABAHOK_API_KEY'));
+try {
+    $box = $mail->createMailbox('student1', 'Init-Pass-2026!', 'Student One');
+} catch (PatrabahokException $e) {
+    if ($e->getCode() !== 409) {
+        throw $e;
+    }
+}
+```
+
+### Common workflows
+
+**Provision a new user** (e.g. a student is enrolled):
+
+1. Generate a strong initial password in your application (16+ random characters).
+2. `POST /mailbox` with the username, password and name.
+3. On `201`, hand the address and password to the person through your own channel (portal,
+   printed slip) and ask them to change it in the webmail under **Settings → Password**.
+4. On `409` the address already exists. If your records say this person owns it, decide whether
+   to leave it or reset the password with `PUT /mailbox/{username}/password`.
+5. Optionally add them to groups: `POST /group/{class}/members` with their address.
+
+**Reset a forgotten password**: `PUT /mailbox/{username}/password`. The new password works at the
+next login.
+
+**Suspend and remove a user** (e.g. a student leaves): first `PUT /mailbox/{username}/status`
+with `{"enabled": false}`. Mail is kept and the account can be restored. Only `DELETE` it once the
+retention period your organization requires is over, because deleting erases their mail.
+
+**Keep your system and the mail server in sync** (nightly job):
+
+1. `GET /mailbox` returns every mailbox in the domain.
+2. Compare it with your user list by `username`.
+3. Create the missing ones, disable the ones that should no longer be active, and fix names and
+   quotas with the `PUT` endpoints.
+
+**Class or department lists**: create a group per class (`POST /group`, `post_policy: "members"`
+so only the class can write to it, or `"owners"` for announcement-only lists), then add members
+in batches of up to 1000 per request. Each address reports success or failure on its own.
+
+### Retries, timeouts and concurrency
+
+- **Safe to retry** after a timeout or a `5xx`: every `GET`, `PUT` and `DELETE`. They are
+  idempotent; repeating one leaves the same result (a repeated `DELETE` may answer `404`, which
+  you can treat as done).
+- **`POST /mailbox`** is not idempotent. If a retry gets `409`, the first attempt most likely
+  succeeded: confirm with `GET /mailbox/{username}`. **`POST /alias`** is idempotent (an existing
+  alias returns `201`), and re-adding group members just updates their role.
+- Use a client timeout around 15 seconds and retry `5xx` / network errors with backoff (for
+  example 1 s, 4 s, 15 s). Never retry `400`, `401`, `403` or `409`; fix the request instead.
+- The server doesn't rate-limit API requests, but it is your mail server too. Keep bulk jobs to a
+  few requests at a time (sequential or up to about 4 in parallel) rather than thousands at once.
+
+### Security checklist
+
+- The key controls every mailbox in its domain. Treat it like a database password: keep it in a
+  secret store or environment variable, out of source control, logs, error reports and browsers.
+  The API sends no CORS headers on purpose, so it can only be called from a backend.
+- Always use `https://`. Don't turn off certificate verification in your HTTP client; the server
+  has a valid Let's Encrypt certificate.
+- **Rotating the key**: generating a new key makes the old one stop working immediately. Update
+  the application's secret right after generating, or do it in a short maintenance window. Revoke
+  a key (`patrabahok api key revoke example.edu`, or in the dashboard) as soon as you suspect it
+  leaked.
+- Every API change is written to the audit log (dashboard → **Audit log**) with the domain key
+  as the actor. Rejected keys are logged with the client IP (`journalctl -u patrabahokd`).
+- Never put a user's password in a URL or a log line. The API only accepts passwords in the JSON
+  body.
+
+### Testing your integration
+
+Use a test username you can delete afterwards:
+
+```sh
+API=https://mail.example.edu/api/example.edu
+H="Authorization: Bearer $PATRABAHOK_API_KEY"
+
+curl -sf -X POST "$API/mailbox" -H "$H" -H 'Content-Type: application/json' \
+     -d '{"username":"api-test","password":"Test-Pass-2026!","name":"API Test"}'
+curl -sf "$API/mailbox/api-test" -H "$H"
+curl -sf -X PUT "$API/mailbox/api-test/status" -H "$H" -H 'Content-Type: application/json' -d '{"enabled":false}'
+curl -sf -X DELETE "$API/mailbox/api-test" -H "$H" -o /dev/null -w '%{http_code}\n'   # 204
+```

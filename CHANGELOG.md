@@ -4,6 +4,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The patrabahok logo across the admin dashboard and the webmail: sign-in pages (with a
+  white-wordmark variant on dark backgrounds), the sidebar/rail mark, favicons and touch icons.
+  The assets are generated from `tools/brand/Patrabahok_Logo.png` by
+  `tools/brand/make_logos.py`.
+- Public API integration guide in docs/PUBLIC-API.md: quick start, endpoint summary,
+  ready-to-use clients for JavaScript, Python and PHP, common workflows (provisioning,
+  password resets, offboarding, nightly sync, class lists), retry rules and a security
+  checklist.
 - **patrabahok Webmail**, the new default webmail (`webmail/roundcube/`): Roundcube 1.7 as the
   engine with a completely redesigned interface, light and dark, responsive from phone to wide
   desktop: a three-pane layout with card-style message rows (text preview, attachment chips,
@@ -74,6 +82,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   release version changed. Before, they kept running the old binaries.
 
 ### Security
+- PHP is kept patched for the webmail (e.g. "php2shell", CVE-2026-109618/109619): phase 90
+  upgrades every installed PHP package to the distro's latest security build, enables daily
+  unattended security upgrades, and installs an apt hook that restarts PHP-FPM whenever an
+  upgrade replaces its binary (a running FPM keeps executing the old code until restarted).
+  `verify` now fails on pending PHP updates or a PHP-FPM still running a replaced binary.
 - Mailbox addresses are now validated as RFC 5322 dot-atoms. Before, a local part such as
   `../../x` let mailbox create/delete (as root, from the dashboard, CLI or local API) reach paths
   outside `/var/mail/vhosts`.

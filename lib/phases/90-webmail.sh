@@ -99,6 +99,40 @@ EOF
   systemctl restart dovecot
 }
 
+# keep_php_patched: PHP serves the webmail to the internet, so a PHP remote-code-execution
+# bug (e.g. "php2shell", CVE-2026-109618/109619) is a direct path into the server.
+#  - upgrade every installed PHP package to the distro's newest (security) build now
+#  - make sure unattended security upgrades run daily
+#  - restart PHP-FPM after any upgrade that replaced its binary (apt hook), since a
+#    running FPM keeps executing the old, vulnerable code until it restarts
+# Distro packages backport fixes without changing PHP's version (Ubuntu 24.04's fixed
+# php8.3 still reports 8.3.6), so the package, not `php -v`, is what to check.
+keep_php_patched() {
+  log_info "Updating PHP to the latest security build..."
+  apt-get update -qq || log_warn "apt-get update failed; using the cached package lists."
+  local -a php_pkgs=()
+  mapfile -t php_pkgs < <(dpkg-query -W -f='${binary:Package} ${db:Status-Abbrev}\n' 'php*' 2>/dev/null | awk '$2 ~ /^ii/ {print $1}')
+  if [ "${#php_pkgs[@]}" -gt 0 ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade "${php_pkgs[@]}" \
+      || log_warn "Could not upgrade PHP packages; check 'apt list --upgradable'."
+  fi
+
+  apt_install unattended-upgrades
+  if [ ! -f /etc/apt/apt.conf.d/20auto-upgrades ] || ! grep -q 'Unattended-Upgrade "1"' /etc/apt/apt.conf.d/20auto-upgrades; then
+    cat > /etc/apt/apt.conf.d/20auto-upgrades <<'APT'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT
+  fi
+
+  install -m 0755 "$PATRABAHOK_HOME/templates/php/patrabahok-php-restart-if-updated.sh" /usr/local/sbin/patrabahok-php-restart-if-updated
+  cat > /etc/apt/apt.conf.d/99patrabahok-php-restart <<'APT'
+// Managed by patrabahok: restart PHP-FPM when a package upgrade replaced its binary.
+DPkg::Post-Invoke { "/usr/local/sbin/patrabahok-php-restart-if-updated || true"; };
+APT
+  log_ok "PHP $(dpkg-query -W -f='${Version}' "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null) (latest available from the distro)."
+}
+
 # install_roundcube FLAVOR — FLAVOR is "patrabahok" (patrabahok skin + plugin) or "roundcube".
 install_roundcube() {
   local flavor="${1:-patrabahok}"
@@ -109,6 +143,7 @@ install_roundcube() {
 
   log_info "Installing nginx and PHP-FPM for Roundcube..."
   apt_install nginx php-fpm php-cli php-mysql php-intl php-mbstring php-xml php-zip php-gd php-curl media-types curl
+  keep_php_patched
   # The nginx package enables a default site on :80, and certbot's standalone renewal
   # (phase 40-tls) needs that port free. Only the loopback site below stays enabled.
   rm -f /etc/nginx/sites-enabled/default

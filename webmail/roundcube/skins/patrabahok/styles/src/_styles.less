@@ -3172,3 +3172,53 @@ html.layout-small {
         }
     }
 }
+
+// ------------------------------------------------------------- brand artwork
+// The mark is a full-color bird (images/logo-mark.png): no tile behind it.
+#layout-menu .popover-header #logo {
+    width: 46px;
+    height: 46px;
+    max-height: 46px;
+    border-radius: 0;
+    box-shadow: none;
+    object-fit: contain;
+}
+html.layout-normal #layout-menu .popover-header #logo,
+html.layout-small #layout-menu .popover-header #logo {
+    width: 36px;
+    height: 36px;
+}
+.task-login {
+    .pb-login-mark {
+        width: 52px;
+        height: 52px;
+        filter: drop-shadow(0 10px 22px rgba(99, 102, 241, .45));
+    }
+    .pb-login-logo {
+        display: block;
+        width: 168px;
+        height: auto;
+        margin: 0 0 22px -6px;
+    }
+    .pb-logo-dark,
+    html.dark-mode & .pb-logo-light {
+        display: none;
+    }
+    html.dark-mode & .pb-logo-dark {
+        display: block;
+    }
+}
+#layout-menu .popover-header {
+    height: auto !important;
+    min-height: 66px;
+    padding: 12px 0 6px !important;
+    overflow: visible;
+    align-items: center;
+
+    #logo {
+        position: static !important;
+        display: block;
+        margin: 0 auto !important;
+        max-width: none;
+    }
+}

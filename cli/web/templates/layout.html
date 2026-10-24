@@ -17,6 +17,8 @@
     })();
   </script>
   <link rel="preload" href="/static/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="/static/favicon.ico?v={{assetVersion}}">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v={{assetVersion}}">
   <link rel="stylesheet" href="/static/style.css?v={{assetVersion}}">
   <script src="/static/htmx.min.js?v={{assetVersion}}" defer></script>
   <script src="/static/alpine.min.js?v={{assetVersion}}" defer></script>
@@ -28,7 +30,7 @@
     <div class="sidebar-backdrop"></div>
     <aside class="sidebar" aria-label="Main navigation">
       <a href="/" class="brand-row" style="text-decoration:none;">
-        <div class="brand-mark">{{icon "send"}}</div>
+        <img class="brand-logo" src="/static/logo-mark.png" alt="" width="40" height="40">
         <div>
           <div class="brand-name">patra<span>bahok</span></div>
           <div class="brand-sub">Mail administration</div>
