@@ -21,7 +21,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with a split "Send now" button. The `patrabahok` plugin adds undo send (0–30 s, also for quick
   replies), a Ctrl/Cmd+K command palette, Gmail-style keyboard shortcuts with a `?` cheat sheet,
   a quick filter menu, hover Archive/read/unread actions, an emoji picker, focus mode, a word
-  count and a discard button.
+  count and a discard button. The left app bar collapses to icons or expands to icons with labels
+  (remembered per browser), dialogs are redesigned (bottom sheets on phones), and in dark mode
+  plain HTML mail follows the theme while designed newsletters keep their own look.
 - **patrabahok_guard** webmail plugin (`webmail/roundcube/plugins/patrabahok_guard`):
   - phishing and spoofing warnings in the reader: mismatched link text, IP or punycode hosts,
     brand and own-domain lookalikes, display-name spoofing, Reply-To mismatches, DMARC/SPF
@@ -29,8 +31,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - every attachment is scanned with ClamAV (clamd INSTREAM). Infected parts show a badge and
     are never served (download, open or "download all"). Infected uploads in the composer are
     rejected.
-  - Gmail-style inbox categories (Primary, Social, Promotions, Updates, Forums), classified
-    from headers and stored as IMAP keywords, shown as tabs and in the sidebar.
   - Rspamd now adds an `Authentication-Results` header (`milter_headers.conf`), which the reader
     uses for the "verified sender" badge. Phase 90 refreshes it on upgraded servers.
 - Filters, vacation replies and forwarding rules in the webmail work

@@ -35,7 +35,7 @@ for exactly what the bootstrap does and how it verifies what it downloads.
   members, and "who can post" policies enforced by Postfix); catch-all addresses; bulk CSV user
   import; and an audit log of every change
 - Webmail at `https://<hostname>/`, chosen at install time: patrabahok Webmail (default; a
-  redesigned Roundcube with inbox categories, message previews, a modern composer, undo send,
+  redesigned Roundcube with message previews, a modern composer, undo send,
   quick reply, ClamAV attachment scanning and phishing-link warnings), stock Roundcube, or the
   experimental Next.js client
 - A public per-domain HTTPS API (`https://<hostname>/api/<domain>/mailbox`) for creating and

@@ -18,7 +18,3 @@ $config['patrabahok_guard_scan_max_size'] = 25 * 1024 * 1024;
 $config['patrabahok_guard_clamd_connect_timeout'] = 2;
 $config['patrabahok_guard_clamd_scan_timeout'] = 20;
 
-// Default of the per-user preference "Sort the inbox into categories"
-// (Settings > Preferences > Mailbox View). Add 'patrabahok_categories' to
-// dont_override to force it for everyone.
-$config['patrabahok_categories'] = true;

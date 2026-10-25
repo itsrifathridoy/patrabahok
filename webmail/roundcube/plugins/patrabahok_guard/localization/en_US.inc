@@ -59,12 +59,3 @@ $labels['uploadblocked'] = 'Upload blocked: $virus detected';
 $labels['blockedtitle'] = 'Attachment blocked';
 $labels['blockedtext'] = 'The attachment "$name" contains a virus ($virus). It has been blocked to protect your device.';
 
-// Categories
-$labels['cat_primary'] = 'Primary';
-$labels['cat_social'] = 'Social';
-$labels['cat_promotions'] = 'Promotions';
-$labels['cat_updates'] = 'Updates';
-$labels['cat_forums'] = 'Forums';
-$labels['prefcategories'] = 'Sort the inbox into categories';
-$labels['setcatinvalid'] = 'Could not move the messages: invalid request.';
-$labels['setcatfailed'] = 'Could not move all messages to that category.';

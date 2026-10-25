@@ -1,6 +1,6 @@
 /**
  * patrabahok_guard client: risky-link confirmation, banner dismiss, attachment scan
- * badges (message view) and inbox categorization helpers (mail list).
+ * badges (message view).
  *
  * @license GNU GPLv3+
  */
@@ -200,107 +200,6 @@
         rc.triggerEvent('pbguard-scan', data);
     }
 
-    // ---------------------------------------------------------------------------------
-    // Mail list: categories
-    // ---------------------------------------------------------------------------------
-
-    var catCallbacks = {}, catSeq = 0, catBusy = false, catTimer = null, catLoops = 0;
-
-    function catRequest(action, params, cb) {
-        var seq = ++catSeq;
-        if (cb) {
-            catCallbacks[seq] = cb;
-        }
-        params._seq = seq;
-        rc.http_post(action, params);
-    }
-
-    function onCategories(data) {
-        var seq = data && data.seq, cb = catCallbacks[seq];
-        delete catCallbacks[seq];
-        if (data && data.counts) {
-            rc.env.pb_category_counts = data.counts;
-        }
-        rc.triggerEvent('pbguard-categories', data);
-        if (typeof cb === 'function') {
-            cb(data);
-        }
-    }
-
-    function categorize(cb) {
-        if (!rc.env.pb_categories_enabled) {
-            if (cb) {
-                cb(null);
-            }
-            return;
-        }
-
-        catBusy = true;
-        catRequest('plugin.pbguard-categorize', { _mbox: 'INBOX' }, function (data) {
-            catBusy = false;
-            if (cb) {
-                cb(data);
-            }
-            // Large inboxes are classified in batches.
-            if (data && data.more && catLoops++ < 20) {
-                setTimeout(function () {
-                    categorize();
-                }, 250);
-            } else {
-                catLoops = 0;
-            }
-        });
-    }
-
-    function setCategory(uids, cat, cb) {
-        if (!$.isArray(uids)) {
-            uids = String(uids || '').split(',');
-        }
-        uids = $.grep($.map(uids, function (u) {
-            return String(u).replace(/[^0-9]/g, '');
-        }), function (u) {
-            return u.length > 0;
-        });
-
-        if (!uids.length) {
-            if (cb) {
-                cb(null);
-            }
-            return;
-        }
-
-        catRequest('plugin.pbguard-setcat', { _uid: uids.join(','), _mbox: 'INBOX', _cat: cat }, cb);
-    }
-
-    function scheduleCategorize() {
-        if (!rc.env.pb_categories_enabled || rc.env.mailbox !== 'INBOX') {
-            return;
-        }
-        clearTimeout(catTimer);
-        catTimer = setTimeout(function () {
-            if (catBusy) {
-                scheduleCategorize();
-            } else {
-                categorize();
-            }
-        }, 800);
-    }
-
-    function initList() {
-        rc.addEventListener('plugin.pbguard_categories', onCategories);
-        // A failed request must not block automatic runs forever.
-        rc.addEventListener('responseafterplugin.pbguard-categorize', function () {
-            catBusy = false;
-        });
-        rc.addEventListener('listupdate', scheduleCategorize);
-        rc.addEventListener('responseaftercheck-recent', scheduleCategorize);
-    }
-
-    window.pbGuard = {
-        categorize: categorize,
-        setCategory: setCategory,
-    };
-
     rc.addEventListener('init', function () {
         if (rc.env.task !== 'mail') {
             return;
@@ -308,10 +207,6 @@
 
         if (rc.env.action === 'show' || rc.env.action === 'preview' || rc.env.action === 'print') {
             initMessage();
-        } else if (!rc.env.action || rc.env.action === 'list') {
-            if (rc.env.pb_categories_enabled) {
-                initList();
-            }
         }
     });
 })();

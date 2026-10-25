@@ -9,7 +9,7 @@
  *   (identity, Sent folder, threading headers and the Answered flag all as usual)
  * - Undo send: a configurable grace period before a message actually goes out
  * - Command palette (Ctrl/Cmd+K) and Gmail-style keyboard shortcuts with a "?" sheet
- * - Sender avatars, category tabs (with the patrabahok_guard plugin), a reader pager
+ * - Sender avatars, a quick filter menu and a reader pager
  * - Composer: smart replies, emoji, focus mode, word count, floating format toolbar
  *
  * Everything is built on Roundcube's public plugin and client APIs (commands,

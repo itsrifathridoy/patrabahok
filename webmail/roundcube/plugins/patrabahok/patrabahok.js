@@ -24,6 +24,11 @@
         get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
         set: function (k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} }
     };
+    // URL of a task/action (rcmail.url() only fills _action, keeping the current task)
+    var taskUrl = function (task, action, params) {
+        var q = $.extend({ _task: task }, action ? { _action: action } : {}, params || {});
+        return './?' + $.param(q);
+    };
     var topApp = function () {
         try {
             if (rc.is_framed() && parent.rcmail) {
@@ -188,18 +193,15 @@
                 if (task == 'mail' && rc.env.action == '') {
                     rc.command('list', f.id);
                 } else {
-                    location.href = rc.url('mail/', { _mbox: f.id });
+                    location.href = taskUrl('mail', '', { _mbox: f.id });
                 }
             } });
         });
-        $.each(rc.env.pb_categories || [], function (i, c) {
-            items.push({ icon: 'tag', label: c.label, group: L('categories'), run: function () { openCategory(c.id); } });
-        });
         items.push({ icon: 'contacts', label: L('gocontacts'), run: function () { rc.command('addressbook'); } });
         items.push({ icon: 'settings', label: L('gosettings'), run: function () { rc.command('settings'); } });
-        items.push({ icon: 'identity', label: L('identities'), run: function () { location.href = rc.url('settings/identities'); } });
+        items.push({ icon: 'identity', label: L('identities'), run: function () { location.href = taskUrl('settings', 'identities'); } });
         if (rc.env.managesieve !== false) {
-            items.push({ icon: 'filter', label: L('filters'), run: function () { location.href = rc.url('settings/plugin.managesieve'); } });
+            items.push({ icon: 'filter', label: L('filters'), run: function () { location.href = taskUrl('settings', 'plugin.managesieve'); } });
         }
         items.push({ icon: 'theme', label: L('toggletheme'), run: function () { $('#taskmenu a.theme').click(); } });
         items.push({ icon: 'keyboard', label: L('showshortcuts'), hint: '?', run: showShortcuts });
@@ -252,8 +254,23 @@
             var a = list.children('.active')[0];
             a && a.scrollIntoView({ block: 'nearest' });
         };
-        var run = function (it) { destroy(); it.run(); };
-        var destroy = function () { box.remove(); };
+        // Roundcube ignores commands while a request (e.g. a preview) is loading; wait for it.
+        var run = function (it) {
+            destroy();
+            var tries = 0;
+            (function go() {
+                if (rc.busy && tries++ < 40) {
+                    setTimeout(go, 150);
+                } else {
+                    it.run();
+                }
+            })();
+        };
+        var destroy = function () { box.remove(); $(window).off('blur.pbpal'); };
+        // A message preview that finishes loading grabs focus; keep typing in the palette.
+        var refocus = function () { setTimeout(function () { if (box.parent().length) { input.focus(); } }, 0); };
+        $(window).on('blur.pbpal', refocus);
+        input.on('blur', refocus);
 
         input.on('input', function () {
             var q = $.trim(this.value);
@@ -363,102 +380,23 @@
         window.pbHandleKey = handleKey;
     }
 
-    // ----------------------------------------------------- filters and categories
-    var CAT_COLORS = { primary: '#5b5bf0', social: '#0ea5e9', promotions: '#22a06b', updates: '#d98a0b', forums: '#8b5cf6' };
+    // -------------------------------------------------------------- quick filters
     var QUICK = [['', 'all'], ['UNSEEN', 'unread'], ['FLAGGED', 'flagged'], ['UNANSWERED', 'unanswered'], ['ATTACH', 'withattachment']];
-    var catCounts = {}, pendingCat = null;
-
-    function categories() {
-        return rc.env.pb_categories_enabled === false ? [] : (rc.env.pb_categories || []);
-    }
 
     function attachFilter() {
         return $('#searchfilter option').filter(function () { return /Content-Type|multipart/i.test(this.value); }).val() || '';
     }
 
-    // Splits the active IMAP filter into its category and quick-filter parts.
-    function filterParts() {
-        var f = $.trim(rc.env.search_filter || 'ALL'), cat = null;
-        $.each(categories(), function (i, c) {
-            if (c.filter && (f === c.filter || f.indexOf(c.filter + ' ') === 0)) {
-                cat = c;
-            }
-        });
-        var quick = cat ? $.trim(f.slice(cat.filter.length)) : (f == 'ALL' ? '' : f);
-        return { cat: cat, quick: quick };
+    function currentFilter() {
+        var f = $.trim(rc.env.search_filter || 'ALL');
+        return f == 'ALL' ? '' : f;
     }
 
-    function applyFilter(cat, quick) {
-        var parts = [];
-        if (cat && cat.filter) {
-            parts.push(cat.filter);
-        }
-        if (quick) {
-            parts.push(quick);
-        }
-        var f = parts.join(' ') || 'ALL';
+    function applyFilter(f) {
+        f = f || 'ALL';
         // keep Roundcube's own filter select in step, so a text search keeps the filter
-        var select = $('#searchfilter');
-        if (select.length) {
-            if (!select.find('option').filter(function () { return this.value === f; }).length) {
-                select.find('option.pb-dyn').remove();
-                select.append($('<option class="pb-dyn">').val(f).text(cat ? cat.label : f));
-            }
-            select.val(f);
-        }
+        $('#searchfilter').val(f);
         rc.filter_mailbox(f);
-    }
-
-    function openCategory(id) {
-        var cat = null;
-        $.each(categories(), function (i, c) { if (c.id == id) { cat = c; } });
-        if (rc.env.task != 'mail' || rc.env.action) {
-            location.href = rc.url('mail/', { _mbox: 'INBOX' }) + (id ? '#pbcat=' + encodeURIComponent(id) : '');
-            return;
-        }
-        if (rc.env.mailbox != 'INBOX') {
-            pendingCat = id || '';
-            rc.command('list', 'INBOX');
-            return;
-        }
-        applyFilter(cat, filterParts().quick);
-    }
-
-    function renderCategoryUI() {
-        var cats = categories(), inbox = rc.env.mailbox == 'INBOX', parts = filterParts();
-        var tabs = $('#pb-tabs'), labels = $('#pb-labels');
-
-        if (!cats.length) {
-            tabs.attr('hidden', true);
-            labels.attr('hidden', true);
-            return;
-        }
-        var count = function (c) {
-            var n = catCounts[c.id];
-            return n ? $('<span class="pb-count">').text(n > 99 ? '99+' : n) : null;
-        };
-
-        tabs.empty().attr('hidden', inbox ? null : true);
-        $('<button type="button" role="tab">').text(L('alltab')).toggleClass('active', !parts.cat)
-            .on('click', function () { applyFilter(null, parts.quick); }).appendTo(tabs);
-        $.each(cats, function (i, c) {
-            $('<button type="button" role="tab">').css('--pb-cat', CAT_COLORS[c.id] || '#5b5bf0')
-                .toggleClass('active', !!parts.cat && parts.cat.id == c.id)
-                .append('<span class="pb-dot"></span>', $('<span>').text(c.label), count(c))
-                .on('click', function () { applyFilter(c, filterParts().quick); })
-                .appendTo(tabs);
-        });
-
-        labels.empty().attr('hidden', null)
-            .append($('<div class="pb-labels-title">').text(L('categories')));
-        $.each(cats, function (i, c) {
-            $('<a href="#" role="button">').css('--pb-cat', CAT_COLORS[c.id] || '#5b5bf0')
-                .toggleClass('active', inbox && !!parts.cat && parts.cat.id == c.id)
-                .append('<span class="pb-dot"></span>', $('<span class="pb-name">').text(c.label),
-                    $('<span class="pb-count">').text(catCounts[c.id] || ''))
-                .on('click', function (e) { e.preventDefault(); openCategory(c.id); })
-                .appendTo(labels);
-        });
     }
 
     function setupFilters() {
@@ -477,7 +415,7 @@
             if (menu) {
                 return close();
             }
-            var parts = filterParts();
+            var cur = currentFilter();
             menu = $('<div id="pb-filter-menu" role="menu">').appendTo(document.body);
             $.each(QUICK, function (i, q) {
                 var value = q[0] == 'ATTACH' ? attachFilter() : q[0];
@@ -486,8 +424,8 @@
                 }
                 $('<button type="button" role="menuitemradio">').text(L(q[1]))
                     .attr('data-filter', value || 'ALL')
-                    .toggleClass('active', (parts.quick || '') === value)
-                    .on('click', function () { close(); applyFilter(filterParts().cat, value); })
+                    .toggleClass('active', cur === value)
+                    .on('click', function () { close(); applyFilter(value); })
                     .appendTo(menu);
             });
             var r = btn[0].getBoundingClientRect();
@@ -496,28 +434,8 @@
                 .on('keydown.pbfm', function (ev) { if (ev.key == 'Escape') { close(); } });
         });
 
-        var sync = function () {
-            var parts = filterParts();
-            btn.toggleClass('active', !!parts.quick);
-            renderCategoryUI();
-            if (pendingCat !== null && rc.env.mailbox == 'INBOX') {
-                var id = pendingCat;
-                pendingCat = null;
-                if (id) {
-                    openCategory(id);
-                }
-            }
-        };
+        var sync = function () { btn.toggleClass('active', !!currentFilter()); };
         rc.addEventListener('listupdate', sync);
-        rc.addEventListener('pbguard-categories', function (data) {
-            catCounts = (data && data.counts) || {};
-            renderCategoryUI();
-        });
-        var m = /#pbcat=([a-z]+)/.exec(location.hash);
-        if (m && rc.env.mailbox == 'INBOX') {
-            pendingCat = m[1];
-            history.replaceState && history.replaceState(null, '', location.pathname + location.search);
-        }
         sync();
     }
 
@@ -700,6 +618,40 @@
         }
     }
 
+    // Dark mode: Elastic paints every HTML message white. Mail that brings its own design
+    // (backgrounds) keeps that canvas, shown as a card; plain HTML mail (most replies and
+    // personal mail) follows the theme instead, with dark inline text colors lifted.
+    function adaptHtmlParts() {
+        var luminance = function (rgb) {
+            var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(rgb || '');
+            if (!m || (m[4] !== undefined && parseFloat(m[4]) === 0)) {
+                return null;
+            }
+            var c = [m[1], m[2], m[3]].map(function (v) {
+                v = v / 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+        };
+        $('#messagebody .message-htmlpart').each(function () {
+            var part = $(this);
+            var designed = part.find('[bgcolor], [background]').length > 0
+                || part.find('[style*="background"]').add(part.find('.rcmBody[style*="background"]')).filter(function () {
+                    var bg = this.style.backgroundColor, img = this.style.backgroundImage;
+                    return (img && img != 'none') || (bg && luminance(getComputedStyle(this).backgroundColor) !== null);
+                }).length > 0;
+            part.addClass(designed ? 'pb-html-card' : 'pb-html-adapt');
+            if (!designed) {
+                part.find('[style*="color"], font[color]').each(function () {
+                    var l = luminance(getComputedStyle(this).color);
+                    if (l !== null && l < 0.3) {
+                        this.classList.add('pb-dark-ink');
+                    }
+                });
+            }
+        });
+    }
+
     function setupQuickReply() {
         var box = $('#pb-quickreply');
         if (!box.length || !rc.env.uid || rc.env.mailbox == rc.env.drafts_mailbox) {
@@ -795,9 +747,15 @@
         }
     }
 
+    // One-row toolbar, most used tools first; the rest folds into TinyMCE's "..." menu
+    // instead of wrapping onto a second row on narrow screens.
+    var EDITOR_TOOLBAR = 'undo redo | bold italic underline strikethrough | forecolor backcolor'
+        + ' | fontselect fontsizeselect | bullist numlist | alignleft aligncenter alignright alignjustify'
+        + ' | outdent indent blockquote | link image table | charmap code removeformat';
+
     function setupEditorConfig() {
-        // Runs before TinyMCE starts: floating selection toolbar, quieter chrome,
-        // and editor content that follows the light/dark theme.
+        // Runs before TinyMCE starts: compact toolbar, floating selection toolbar, and
+        // editor content that follows the light/dark theme.
         rc.addEventListener('editor-init', function (e) {
             if (rc.env.action != 'compose' || !e || !e.config) {
                 return;
@@ -806,14 +764,29 @@
             if (c.plugins.indexOf('quickbars') < 0) {
                 c.plugins += ' quickbars';
             }
+            // Elastic rewrites the toolbar after this handler (a "plain text" button in
+            // front, a three-button toolbar on touch screens). Plain text is in the send
+            // menu here, and the overflow menu keeps every tool reachable on touch too.
+            var toolbar = EDITOR_TOOLBAR;
+            Object.defineProperty(c, 'toolbar', {
+                configurable: true,
+                enumerable: true,
+                get: function () { return toolbar; },
+                set: function () {}
+            });
+            c.toolbar_mode = 'floating';
+            c.toolbar_sticky = false;
+            c.statusbar = false;
+            c.min_height = 320;
             c.quickbars_insert_toolbar = false;
-            c.quickbars_selection_toolbar = 'bold italic underline strikethrough | quicklink h2 h3 blockquote | forecolor removeformat';
+            c.quickbars_selection_toolbar = 'bold italic underline | quicklink blockquote | forecolor removeformat';
             c.skin = dark ? 'oxide-dark' : 'oxide';
             c.content_style = (c.content_style || '')
                 + 'body{font-family:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;'
-                + 'font-size:15px;line-height:1.65;margin:6px 2px;color:' + (dark ? '#ececf1' : '#17181c') + ';background:' + (dark ? '#1c1c1f' : '#ffffff') + '}'
+                + 'font-size:15px;line-height:1.7;margin:0;padding:6px 0 12px;color:' + (dark ? '#ececf1' : '#17181c') + ' !important;background:' + (dark ? '#1c1c1f' : '#ffffff') + ' !important}'
                 + 'a{color:' + (dark ? '#9a9aff' : '#5b5bf0') + '}blockquote{border-left:3px solid ' + (dark ? '#3d3d63' : '#d9d9fc') + ';margin-left:0;padding-left:12px;color:' + (dark ? '#9b9ba6' : '#6c707c') + '}'
-                + 'p{margin:0 0 .7em}';
+                + 'p{margin:0 0 .7em}'
+                + '.mce-content-body[data-mce-placeholder]:not(.mce-visualblocks)::before{color:' + (dark ? '#6f6f7a' : '#a0a3ad') + ';font-style:normal}';
         });
     }
 
@@ -823,17 +796,10 @@
         }
         $('body').addClass('pb-compose');
 
-        // From identity as a pill with an avatar
-        var fromSel = $('#_from');
-        var fromGroup = $('#compose_from .input-group');
-        var paintFrom = function () {
-            var t = fromSel.find('option:selected').text();
-            fromGroup.find('.pb-avatar').remove();
-            fromGroup.prepend(avatar(t, (t.match(/[^\s<>"]+@[^\s<>"]+/) || [t])[0], 'sm'));
-        };
-        if (fromSel.is('select')) {
-            fromSel.on('change', paintFrom);
-            paintFrom();
+        // card title from the compose mode
+        var titles = { reply: 'replytitle', forward: 'forwardtitle', draft: 'drafttitle', edit: 'drafttitle' };
+        if (titles[rc.env.compose_mode]) {
+            $('.pb-compose-title').text(L(titles[rc.env.compose_mode]));
         }
 
         // Borderless fields need placeholders to read as fields.
@@ -841,15 +807,32 @@
         $('#compose_to .recipient-input input').attr('placeholder', L('recipients'));
         $('#composebody').attr('placeholder', L('writehere'));
 
-        var end = $('.pb-sendbar .pb-sendbar-end');
+        // Cc / Bcc links reveal their rows; closing a row brings the link back.
+        var syncFieldLinks = function () {
+            $('.pb-add-field').each(function () {
+                $(this).toggle($('#compose_' + $(this).data('target')).hasClass('hidden'));
+            });
+        };
+        $('.pb-add-field').on('click', function (e) {
+            e.preventDefault();
+            var row = $('#compose_' + $(this).data('target')).removeClass('hidden');
+            syncFieldLinks();
+            row.find('.recipient-input input').focus();
+        });
+        if (window.MutationObserver) {
+            var mo = new MutationObserver(syncFieldLinks);
+            $('#compose_cc, #compose_bcc').each(function () { mo.observe(this, { attributes: true, attributeFilter: ['class'] }); });
+        }
+        syncFieldLinks();
+
+        var tools = $('.pb-sendbar .pb-tools');
         var status = $('.pb-sendbar .pb-status');
         var mk = function (cls, title) {
             return $('<button type="button" class="pb-bar-btn">').addClass(cls).attr('title', title).attr('aria-label', title);
         };
         var fmtBtn = mk('pb-format', L('formatting'));
         var emojiBtn = mk('pb-emoji-btn', L('emoji')).attr('aria-haspopup', 'true');
-        var focusBtn = mk('pb-focus-btn', L('focusmode'));
-        end.prepend(fmtBtn, emojiBtn, focusBtn);
+        tools.prepend(fmtBtn, emojiBtn);
 
         // emoji picker, floating above the button
         var picker = $('<div id="pb-emoji" role="dialog" hidden>').appendTo(document.body);
@@ -875,9 +858,9 @@
         });
         $(document).on('click', function (e) { if (!$(e.target).closest('#pb-emoji, .pb-emoji-btn').length) { picker.attr('hidden', true); } });
 
-        // formatting toolbar: hidden by default (select text for the floating bar)
+        // formatting toolbar: shown by default, "Aa" hides it (the selection bar remains)
         var container = $('#composebodycontainer');
-        var tbShown = store.get('pb_tb') == '1';
+        var tbShown = store.get('pb_tb') != '0';
         var paintTb = function () {
             container.toggleClass('pb-tb-hidden', !tbShown);
             fmtBtn.toggleClass('pb-on', isHtml() && tbShown);
@@ -895,9 +878,46 @@
         rc.addEventListener('editor-load', paintTb);
         paintTb();
 
-        focusBtn.on('click', function () {
+        // TinyMCE decides which tools fit in the row when it starts, before the web font
+        // has loaded; once wider labels arrive the overflow button can wrap. Re-measure
+        // (TinyMCE re-lays out its toolbar on window resize) when fonts and editor are ready.
+        var relayout = function () {
+            var ed = rc.editor && rc.editor.editor;
+            if (ed && ed.initialized) {
+                ed.fire('ResizeWindow');
+                ed.fire('ResizeEditor');
+            }
+        };
+        rc.addEventListener('editor-load', function () {
+            setTimeout(relayout, 50);
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(relayout);
+            }
+        });
+
+        // plain text / rich text, from the send menu
+        var fmtItem = $('.pb-toggle-format');
+        var paintFmtItem = function () { fmtItem.text(L(isHtml() ? 'plaintext' : 'richtext')); };
+        $(document).on('click', '.pb-toggle-format', function (e) {
+            e.preventDefault();
+            rc.command('toggle-editor', { id: 'composebody', html: !isHtml() }, '', e.originalEvent);
+            setTimeout(function () { paintFmtItem(); paintTb(); }, 100);
+        });
+        rc.addEventListener('editor-load', paintFmtItem);
+        paintFmtItem();
+
+        $('.pb-focus-btn').on('click', function () {
             $('html').toggleClass('pb-focus-mode');
-            focusBtn.toggleClass('pb-on');
+            $(this).toggleClass('pb-on');
+        });
+        $('.pb-close-compose').on('click', function (e) {
+            e.preventDefault();
+            if (rc.env.extwin) {
+                window.close();
+            } else {
+                // Roundcube asks before leaving unsaved changes.
+                rc.command('list', rc.env.mailbox || 'INBOX');
+            }
         });
 
         // options panel (wide screens slide it in; small screens use Elastic's pane)
@@ -934,13 +954,14 @@
                 if (rc.env.extwin) {
                     setTimeout(function () { window.close(); }, 300);
                 } else {
-                    setTimeout(function () { rc.redirect(rc.url('mail/', { _mbox: rc.env.mailbox || 'INBOX' })); }, 300);
+                    setTimeout(function () { rc.redirect(taskUrl('mail', '', { _mbox: rc.env.mailbox || 'INBOX' })); }, 300);
                 }
                 return true;
             }, { button: 'delete', button_class: 'delete' });
         });
 
-        // word count in the bar
+        // status: word count, plus "Draft saved" once Roundcube autosaves
+        var savedAt = null, lastDraft = rc.env.draft_id;
         var update = function () {
             var text = '';
             try {
@@ -948,8 +969,16 @@
             } catch (err) {
                 text = $('#composebody').val() || '';
             }
+            if (rc.env.draft_id && rc.env.draft_id != lastDraft) {
+                lastDraft = rc.env.draft_id;
+                savedAt = new Date();
+            }
             var n = $.trim(text || '').split(/\s+/).filter(Boolean).length;
-            status.text(n == 1 ? L('word') : L('words', { n: n }));
+            var parts = [n == 1 ? L('word') : L('words', { n: n })];
+            if (savedAt) {
+                parts.push(L('saved') + ' ' + savedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+            }
+            status.text(parts.join(' · '));
         };
         setInterval(update, 1500);
         update();
@@ -1130,6 +1159,68 @@
         }
     }
 
+    // ------------------------------------------------------- rail, logo, dialogs
+    function setupRail() {
+        var menu = $('#taskmenu');
+        if (!menu.length || $('.pb-rail-toggle').length) {
+            return;
+        }
+        // tooltips for the icon-only rail
+        menu.find('a').each(function () {
+            var a = $(this);
+            if (!a.attr('title')) {
+                a.attr('title', $.trim(a.find('.inner').text()));
+            }
+        });
+        var toggle = $('<a href="#" class="pb-rail-toggle" role="button">')
+            .append($('<span class="inner">'));
+        var paint = function () {
+            var on = $('html').hasClass('pb-rail-expanded');
+            toggle.attr({ title: L(on ? 'collapse' : 'expand'), 'aria-expanded': on ? 'true' : 'false' })
+                .find('.inner').text(L(on ? 'collapse' : 'expand'));
+        };
+        toggle.on('click', function (e) {
+            e.preventDefault();
+            $('html').toggleClass('pb-rail-expanded');
+            store.set('pb_rail', $('html').hasClass('pb-rail-expanded') ? '1' : '0');
+            paint();
+            // let Elastic re-measure headers and the editor toolbar
+            setTimeout(function () { $(window).trigger('resize'); }, 220);
+        });
+        menu.find('.special-buttons').prepend(toggle);
+        paint();
+    }
+
+    function setupLogo() {
+        $('#layout-menu #logo').attr({ title: L('gotoinbox'), role: 'link', tabindex: 0 })
+            .on('click keydown', function (e) {
+                if (e.type == 'keydown' && e.key != 'Enter') {
+                    return;
+                }
+                if (rc.env.task == 'mail' && !rc.env.action && rc.message_list) {
+                    rc.command('list', 'INBOX');
+                } else {
+                    location.href = taskUrl('mail', '', { _mbox: 'INBOX' });
+                }
+            });
+    }
+
+    // Elastic makes every dialog full screen on phones; short ones become bottom sheets.
+    function setupDialogs() {
+        $(document).on('dialogopen', function (e) {
+            var content = $(e.target), dialog = content.closest('.ui-dialog');
+            if (!dialog.length || window.innerWidth > 480 || content.is('.iframe') || content.find('iframe').length) {
+                return;
+            }
+            dialog.addClass('pb-sheet');
+            var natural = content.css('height', 'auto')[0].scrollHeight;
+            if (natural > window.innerHeight * 0.7) {
+                dialog.removeClass('pb-sheet');
+                content.css('height', '');
+            }
+        });
+    }
+
     // ------------------------------------------------------------- palette hint
     function setupTopHint() {
         if (rc.is_framed() || rc.env.action == 'compose') {
@@ -1145,6 +1236,16 @@
     }
 
     setupEditorConfig();
+
+    // Elastic turns the app menu into a pop-over on phones but never turns it back when
+    // the window grows again (its large-screen resize skips that), which leaves the rail
+    // floating over the folder list. Restore the plain rail on every non-phone layout.
+    rc.addEventListener('skin-resize', function (e) {
+        if (e && e.mode != 'phone') {
+            $('#menu-overlay').remove();
+            $('#layout-menu').removeClass('popover hidden');
+        }
+    });
 
     rc.addEventListener('init', function () {
         if (rc.env.pb_avatars) {
@@ -1162,14 +1263,18 @@
             setupEmptyState();
             setupTopHint();
             setupAccount();
+            setupRail();
+            setupLogo();
         } else {
             setupShortcuts();
         }
         if (rc.env.action == 'preview' || rc.env.action == 'show') {
             setupReader();
+            adaptHtmlParts();
             setupQuickReply();
         }
         setupContactAvatars();
+        setupDialogs();
         setupComposer();
         if (rc.env.action == 'compose') {
             setupUndoSend();

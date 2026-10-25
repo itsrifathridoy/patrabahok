@@ -1,7 +1,8 @@
 <roundcube:include file="includes/layout.html" />
 <!-- patrabahok: based on Elastic's compose.html (Roundcube 1.7.5). Same objects and ids.
-     From and To share a row, attachments sit under the editor as cards, the options
-     sidebar is a slide-over panel, and the send bar holds the toolbar's actions. -->
+     A card with its own header, compact From/To rows with Cc/Bcc links, a borderless
+     editor with a one-row toolbar, attachment chips, and a send bar holding the
+     toolbar's actions. The options sidebar is a slide-over panel. -->
 <roundcube:include file="includes/menu.html" condition="!env:extwin && !env:framed" />
 <roundcube:add_label name="recipientsadded" />
 <roundcube:add_label name="nocontactselected" />
@@ -112,13 +113,19 @@
 		</div>
 	</div>
 	<div id="compose-content" class="formcontainer content">
+		<div class="pb-compose-head">
+			<h2 class="pb-compose-title"><roundcube:label name="patrabahok.newmessage" /></h2>
+			<span class="pb-compose-head-actions">
+				<button type="button" class="pb-head-btn pb-focus-btn" title="<roundcube:label name="patrabahok.focusmode" />"><span class="inner"><roundcube:label name="patrabahok.focusmode" /></span></button>
+				<a href="#close" class="pb-head-btn pb-close-compose" role="button" title="<roundcube:label name="close" />"><span class="inner"><roundcube:label name="close" /></span></a>
+			</span>
+		</div>
 		<roundcube:object name="composeFormHead" role="main" class="formcontent scroller" />
 		<roundcube:object name="composeObjects" id="compose-objects" class="mb-3" />
 		<!-- message headers -->
 		<div id="compose-headers" role="region" aria-labelledby="aria-label-composeheaders">
 			<h2 id="aria-label-composeheaders" class="voice"><roundcube:label name="arialabelmessageheaders" /></h2>
 			<div class="compose-headers">
-				<div class="pb-compose-top">
 				<div id="compose_from" class="form-group row">
 					<label for="_from" class="col-2 col-form-label"><roundcube:label name="from" /></label>
 					<div class="col-10">
@@ -138,12 +145,13 @@
 							<span class="input-group-append">
 								<a href="#add-contact" onclick="UI.recipient_selector('to')" class="input-group-text icon add recipient" title="<roundcube:label name="addcontact" />" tabindex="1"><span class="inner"><roundcube:label name="addcontact" /></span></a>
 							</span>
-							<span class="input-group-append">
-								<a href="#add-header" data-popup="headers-menu" class="input-group-text icon add" title="<roundcube:label name="addheader" />" tabindex="1"><span class="inner"><roundcube:label name="addheader" /></span></a>
+							<span class="input-group-append pb-field-links">
+								<a href="#cc" class="pb-add-field" data-target="cc" tabindex="1"><roundcube:label name="cc" /></a>
+								<a href="#bcc" class="pb-add-field" data-target="bcc" tabindex="1"><roundcube:label name="bcc" /></a>
+								<a href="#add-header" data-popup="headers-menu" class="input-group-text icon add pb-more-fields" title="<roundcube:label name="addheader" />" tabindex="1"><span class="inner"><roundcube:label name="addheader" /></span></a>
 							</span>
 						</div>
 					</div>
-				</div>
 				</div>
 				<div id="compose_cc" class="hidden form-group row">
 					<label for="_cc" class="col-2 col-form-label"><roundcube:label name="cc" /></label>
@@ -218,12 +226,11 @@
 			<roundcube:endif />
 		</div>
 		<div id="pb-smart-replies" class="pb-smart-replies" hidden></div>
-		<!-- attachments (patrabahok: under the editor, as cards) -->
+		<!-- attachments (patrabahok: under the editor, as chips) -->
 		<div id="compose-attachments" class="file-upload pb-attachments" role="region" aria-labelledby="aria-label-compose-attachments">
 			<h2 id="aria-label-compose-attachments" class="voice"><roundcube:label name="attachments" /></h2>
 			<div class="upload-form">
 				<roundcube:object name="composeAttachmentForm" mode="hint" />
-				<button type="button" class="btn btn-secondary attach pb-attach-tile" tabindex="2" onclick="rcmail.upload_input('uploadform')" title="<roundcube:label name="addattachment" />"><span class="inner"><roundcube:label name="addattachment" /></span></button>
 			</div>
 			<roundcube:object name="composeAttachmentList" id="attachment-list" class="attachmentslist" tabindex="2" />
 			<roundcube:object name="fileDropArea" id="compose-attachments" />
@@ -231,23 +238,23 @@
 		</form>
 		<div class="formbuttons pb-sendbar">
 			<div class="pb-sendbar-start">
-				<a href="#discard" class="pb-bar-btn pb-discard" title="<roundcube:label name="patrabahok.discard" />" role="button"><span class="inner"><roundcube:label name="patrabahok.discard" /></span></a>
-				<a href="#options" class="pb-bar-btn pb-options-toggle" title="<roundcube:label name="options" />" role="button"><span class="inner"><roundcube:label name="options" /></span></a>
-				<span class="pb-status" aria-live="polite"></span>
-			</div>
-			<div class="pb-sendbar-end">
-				<roundcube:button name="addattachment" type="link" class="pb-bar-btn pb-attach"
-					label="attach" title="addattachment"
-					onclick="if (!$(this).is('.disabled')) rcmail.upload_input('uploadform')" innerclass="inner" />
-				<a href="#responses" class="pb-bar-btn pb-responses" title="<roundcube:label name='insertresponse' />" data-popup="responses-menu" role="button"><span class="inner"><roundcube:label name="responses" /></span></a>
-				<roundcube:button command="insert-sig" type="link" class="pb-bar-btn pb-signature disabled" classAct="pb-bar-btn pb-signature"
-					label="signature" title="insertsignature" innerclass="inner" />
-				<roundcube:button command="savedraft" type="link" class="pb-bar-btn pb-savedraft disabled" classAct="pb-bar-btn pb-savedraft"
-					label="save" title="savemessage" innerclass="inner" />
 				<span class="pb-send-group">
-					<roundcube:button command="send" class="btn btn-primary send" label="patrabahok.sendnow" tabindex="1" data-content-button="true" />
+					<roundcube:button command="send" class="btn btn-primary send" label="send" tabindex="1" />
 					<a href="#send-options" class="pb-send-more" data-popup="pb-send-menu" title="<roundcube:label name="patrabahok.sendoptions" />" role="button"><span class="inner"><roundcube:label name="patrabahok.sendoptions" /></span></a>
 				</span>
+				<span class="pb-tools">
+					<roundcube:button name="addattachment" type="link" class="pb-bar-btn pb-attach"
+						label="attach" title="addattachment"
+						onclick="if (!$(this).is('.disabled')) rcmail.upload_input('uploadform')" innerclass="inner" />
+					<a href="#responses" class="pb-bar-btn pb-responses" title="<roundcube:label name='insertresponse' />" data-popup="responses-menu" role="button"><span class="inner"><roundcube:label name="responses" /></span></a>
+					<roundcube:button command="insert-sig" type="link" class="pb-bar-btn pb-signature disabled" classAct="pb-bar-btn pb-signature"
+						label="signature" title="insertsignature" innerclass="inner" />
+				</span>
+			</div>
+			<div class="pb-sendbar-end">
+				<span class="pb-status" aria-live="polite"></span>
+				<a href="#options" class="pb-bar-btn pb-options-toggle" title="<roundcube:label name="options" />" role="button"><span class="inner"><roundcube:label name="options" /></span></a>
+				<a href="#discard" class="pb-bar-btn pb-discard" title="<roundcube:label name="patrabahok.discard" />" role="button"><span class="inner"><roundcube:label name="patrabahok.discard" /></span></a>
 			</div>
 		</div>
 	</div>
@@ -281,6 +288,8 @@
 	<h3 id="aria-label-pb-send-menu" class="voice"><roundcube:label name="patrabahok.sendoptions" /></h3>
 	<ul class="menu listing" role="menu" aria-labelledby="aria-label-pb-send-menu">
 		<li role="menuitem"><a href="#" class="pb-send-instant active" role="button"><roundcube:label name="patrabahok.sendinstant" /></a></li>
+		<roundcube:button command="insert-sig" type="link-menuitem" label="insertsignature" class="signature disabled" classAct="signature active" />
+		<li role="menuitem"><a href="#" class="pb-toggle-format active" role="button"><roundcube:label name="patrabahok.plaintext" /></a></li>
 		<roundcube:button command="savedraft" type="link-menuitem" label="savemessage" class="save draft disabled" classAct="save draft active" />
 		<roundcube:button command="extwin" type="link-menuitem" label="openinextwin" class="extwin disabled" classAct="extwin active" condition="!env:extwin" data-hidden="small" />
 	</ul>

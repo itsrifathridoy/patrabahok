@@ -21,6 +21,7 @@
 	<roundcube:object name="links" />
 	<!-- patrabahok skin, based on Elastic's includes/layout.html (Roundcube 1.7.5): Elastic's stylesheet, styles.min.css is this skin's own, compiled from Elastic's LESS plus styles/src (build-skin.sh). -->
 	<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+	<script>try { if (localStorage.getItem('pb_rail') == '1') document.documentElement.className += ' pb-rail-expanded'; } catch (e) { }</script>
 	<link rel="preload" href="/fonts/plus-jakarta-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 	<link rel="stylesheet" href="/deps/bootstrap.min.css">
 	<roundcube:if condition="config:devel_mode" />

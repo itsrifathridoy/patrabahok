@@ -1,7 +1,7 @@
 <?php
 
 /**
- * patrabahok_guard: mail safety and sorting for the patrabahok Webmail (Roundcube).
+ * patrabahok_guard: mail safety for the patrabahok Webmail (Roundcube).
  *
  * - Phishing / sender-trust analysis of every displayed message: a warning banner,
  *   marked risky links with a confirmation before they open, and a "verified sender"
@@ -9,8 +9,6 @@
  * - ClamAV (clamd INSTREAM) scanning of attachments: uploads in compose are blocked
  *   when infected, received attachments get a scan badge and infected parts are never
  *   served
- * - Automatic inbox categories (primary, social, promotions, updates, forums) stored
- *   as IMAP keywords, classified from headers only
  *
  * Copyright (C) patrabahok contributors
  *
@@ -29,17 +27,15 @@
  */
 class patrabahok_guard extends rcube_plugin
 {
-    public $task = 'mail|settings';
+    public $task = 'mail';
 
-    /** Headers the analysis and classification read, added to the IMAP header fetch. */
+    /** Headers the analysis reads, added to the IMAP header fetch. */
     const FETCH_HEADERS = [
         'AUTHENTICATION-RESULTS', 'X-SPAMD-RESULT', 'X-SPAM-STATUS', 'LIST-UNSUBSCRIBE', 'LIST-ID', 'PRECEDENCE',
         'AUTO-SUBMITTED', 'FEEDBACK-ID', 'X-MAILER',
     ];
 
     const SCAN_CACHE_MAX = 300;
-
-    const CATEGORIZE_BATCH = 300;
 
     /** @var array|null analysis of the message being shown */
     private $result;
@@ -52,17 +48,8 @@ class patrabahok_guard extends rcube_plugin
         require_once __DIR__ . '/lib/pbguard_domain.php';
         require_once __DIR__ . '/lib/pbguard_analyzer.php';
         require_once __DIR__ . '/lib/pbguard_clamd.php';
-        require_once __DIR__ . '/lib/pbguard_classifier.php';
 
         $this->load_config();
-        $rcmail = rcmail::get_instance();
-
-        if ($rcmail->task == 'settings') {
-            $this->add_texts('localization/');
-            $this->add_hook('preferences_list', [$this, 'preferences_list']);
-            $this->add_hook('preferences_save', [$this, 'preferences_save']);
-            return;
-        }
 
         $this->add_hook('storage_init', [$this, 'storage_init']);
         $this->add_hook('startup', [$this, 'startup']);
@@ -74,8 +61,6 @@ class patrabahok_guard extends rcube_plugin
         $this->add_hook('attachment_save', [$this, 'attachment_upload']);
 
         $this->register_action('plugin.pbguard-scan', [$this, 'action_scan']);
-        $this->register_action('plugin.pbguard-categorize', [$this, 'action_categorize']);
-        $this->register_action('plugin.pbguard-setcat', [$this, 'action_setcat']);
     }
 
     // ---------------------------------------------------------------------------------
@@ -112,15 +97,6 @@ class patrabahok_guard extends rcube_plugin
             'scanpending', 'scanclean', 'scaninfected', 'scanerror', 'scanskipped', 'scanpendingtitle',
             'scancleantitle', 'scaninfectedtitle', 'scanerrortitle', 'scanskippedtitle', 'attblocked', 'verifiedsender',
         ]);
-
-        if ($template == 'mail' && $this->categories_enabled()) {
-            $cats = [];
-            foreach (pbguard_classifier::CATEGORIES as $cat) {
-                $cats[] = ['id' => $cat, 'label' => $this->gettext('cat_' . $cat), 'filter' => pbguard_classifier::filter($cat)];
-            }
-            $rcmail->output->set_env('pb_categories', $cats);
-            $rcmail->output->set_env('pb_categories_enabled', true);
-        }
 
         return $args;
     }
@@ -520,190 +496,5 @@ class patrabahok_guard extends rcube_plugin
             . '@media (prefers-color-scheme:dark){body{background:#111316;color:#eceef0}.b{background:#1a1d21;border-color:#2b2f35}p{color:#b0b4ba}}</style>'
             . '</head><body><div class="b" role="alert"><h1>' . rcube::Q($title) . '</h1><p>' . rcube::Q($text) . '</p></div></body></html>';
         exit;
-    }
-
-    // ---------------------------------------------------------------------------------
-    // Categories
-    // ---------------------------------------------------------------------------------
-
-    private function categories_enabled()
-    {
-        return (bool) rcmail::get_instance()->config->get('patrabahok_categories', true);
-    }
-
-    /** AJAX: classify not-yet-classified INBOX messages and return unread counts. */
-    public function action_categorize()
-    {
-        $rcmail = rcmail::get_instance();
-        $mbox = rcube_utils::get_input_string('_mbox', rcube_utils::INPUT_GPC, true) ?: 'INBOX';
-
-        if (!$this->categories_enabled() || strtoupper($mbox) !== 'INBOX') {
-            $rcmail->output->command('plugin.pbguard_categories', ['counts' => (object) [], 'classified' => 0, 'more' => false, 'disabled' => true, 'seq' => $this->seq()]);
-            $rcmail->output->send();
-        }
-
-        $mbox = 'INBOX';
-        $storage = $rcmail->storage;
-        $storage->check_connection();
-        $conn = $storage->conn;
-
-        $classified = 0;
-        $more = false;
-        $index = $conn->search($mbox, 'UNKEYWORD ' . pbguard_classifier::MARKER . $this->skip_deleted(), true);
-        $uids = $index && !$index->is_error() ? $index->get() : [];
-
-        if ($uids) {
-            $uids = array_map('intval', $uids);
-            rsort($uids, SORT_NUMERIC);
-            $more = count($uids) > self::CATEGORIZE_BATCH;
-            $uids = array_slice($uids, 0, self::CATEGORIZE_BATCH);
-
-            $headers = $conn->fetchHeaders($mbox, $uids, true, false, pbguard_classifier::HEADERS);
-            $own = $this->own_domains();
-            $groups = [];
-            foreach ((array) $headers as $hdr) {
-                if (empty($hdr->uid)) {
-                    continue;
-                }
-                $cat = pbguard_classifier::classify($hdr, $own);
-                $groups[$cat][] = (int) $hdr->uid;
-            }
-
-            $done = [];
-            foreach ($groups as $cat => $list) {
-                if ($cat != 'primary' && !$conn->flag($mbox, $list, pbguard_classifier::KEYWORDS[$cat])) {
-                    continue;
-                }
-                $done = array_merge($done, $list);
-            }
-
-            if ($done && $conn->flag($mbox, $done, pbguard_classifier::MARKER)) {
-                $classified = count($done);
-            }
-
-        }
-
-        $rcmail->output->command('plugin.pbguard_categories', [
-            'counts' => $this->category_counts($conn, $mbox),
-            'classified' => $classified,
-            'more' => $more,
-            'seq' => $this->seq(),
-        ]);
-        $rcmail->output->send();
-    }
-
-    /** AJAX: move messages to a category. */
-    public function action_setcat()
-    {
-        $rcmail = rcmail::get_instance();
-        $mbox = rcube_utils::get_input_string('_mbox', rcube_utils::INPUT_GPC, true) ?: 'INBOX';
-        $cat = rcube_utils::get_input_string('_cat', rcube_utils::INPUT_GPC);
-        $uid_str = rcube_utils::get_input_string('_uid', rcube_utils::INPUT_GPC);
-
-        $uids = [];
-        foreach (explode(',', (string) $uid_str) as $u) {
-            $u = trim($u);
-            if (!preg_match('/^[1-9][0-9]{0,9}$/', $u)) {
-                $uids = [];
-                break;
-            }
-            $uids[] = (int) $u;
-        }
-        $uids = array_values(array_unique($uids));
-
-        if (!$this->categories_enabled() || !in_array($cat, pbguard_classifier::CATEGORIES) || !$uids || count($uids) > 1000
-            || strtoupper($mbox) !== 'INBOX'
-        ) {
-            $this->add_texts('localization/');
-            $rcmail->output->show_message($this->gettext('setcatinvalid'), 'error');
-            $rcmail->output->send();
-        }
-
-        $mbox = 'INBOX';
-        $storage = $rcmail->storage;
-        $storage->check_connection();
-        $conn = $storage->conn;
-
-        $ok = true;
-        foreach (pbguard_classifier::KEYWORDS as $c => $kw) {
-            if ($c != $cat) {
-                $ok = $conn->unflag($mbox, $uids, $kw) && $ok;
-            }
-        }
-        if ($cat != 'primary') {
-            $ok = $conn->flag($mbox, $uids, pbguard_classifier::KEYWORDS[$cat]) && $ok;
-        }
-        $ok = $conn->flag($mbox, $uids, pbguard_classifier::MARKER) && $ok;
-
-        if (!$ok) {
-            $this->add_texts('localization/');
-            $rcmail->output->show_message($this->gettext('setcatfailed'), 'error');
-        }
-
-        $rcmail->output->command('plugin.pbguard_categories', [
-            'counts' => $this->category_counts($conn, $mbox),
-            'classified' => 0,
-            'more' => false,
-            'moved' => $ok ? ['uids' => $uids, 'cat' => $cat] : null,
-            'seq' => $this->seq(),
-        ]);
-        $rcmail->output->send();
-    }
-
-    private function seq()
-    {
-        return (int) rcube_utils::get_input_string('_seq', rcube_utils::INPUT_GPC);
-    }
-
-    private function category_counts($conn, $mbox)
-    {
-        $counts = [];
-        foreach (pbguard_classifier::CATEGORIES as $cat) {
-            $res = $conn->search($mbox, 'UNSEEN ' . pbguard_classifier::filter($cat) . $this->skip_deleted(), true, ['COUNT']);
-            $counts[$cat] = $res && !$res->is_error() ? (int) $res->count() : 0;
-        }
-
-        return $counts;
-    }
-
-    private function skip_deleted()
-    {
-        return rcmail::get_instance()->config->get('skip_deleted') ? ' UNDELETED' : '';
-    }
-
-    // ---------------------------------------------------------------------------------
-    // Preferences
-    // ---------------------------------------------------------------------------------
-
-    public function preferences_list($args)
-    {
-        if ($args['section'] != 'mailbox') {
-            return $args;
-        }
-
-        $rcmail = rcmail::get_instance();
-        $dont_override = (array) $rcmail->config->get('dont_override', []);
-        if (in_array('patrabahok_categories', $dont_override)) {
-            return $args;
-        }
-
-        $check = new html_checkbox(['name' => '_pb_categories', 'id' => 'pb_categories', 'value' => 1]);
-        $args['blocks']['main']['options']['pb_categories'] = [
-            'title' => html::label('pb_categories', rcube::Q($this->gettext('prefcategories'))),
-            'content' => $check->show($this->categories_enabled() ? 1 : 0),
-        ];
-
-        return $args;
-    }
-
-    public function preferences_save($args)
-    {
-        if ($args['section'] == 'mailbox'
-            && !in_array('patrabahok_categories', (array) rcmail::get_instance()->config->get('dont_override', []))
-        ) {
-            $args['prefs']['patrabahok_categories'] = !empty($_POST['_pb_categories']);
-        }
-
-        return $args;
     }
 }
