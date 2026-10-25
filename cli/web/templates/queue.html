@@ -1,27 +1,67 @@
 {{define "content"}}
 <div class="page-header">
-  <div class="page-header-icon stat-icon-amber">{{template "icon-list"}}</div>
+  <div class="page-header-icon tone-orange">{{icon "inbox"}}</div>
   <div>
     <h1>Mail queue</h1>
-    <p class="subtitle">Messages Postfix currently has queued for delivery.</p>
+    <p class="subtitle">Outgoing messages Postfix hasn't delivered yet, usually because the receiving server is slow, down, or refusing them for now. Postfix retries on its own for up to 5 days.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn" href="/queue">{{icon "refresh"}} Refresh</a>
+    {{if .Messages}}
+    {{if .Deferred}}<button class="btn btn-danger" hx-post="/queue/delete-deferred" hx-confirm="Delete all {{.Deferred}} deferred messages? Their senders won't be told, and this can't be undone.">{{icon "trash"}} Delete deferred</button>{{end}}
+    <button class="btn btn-primary" hx-post="/queue/flush">{{icon "send"}} Retry all now</button>
+    {{end}}
   </div>
 </div>
 
-<div class="toolbar">
-  <div></div>
-  <div style="display:flex; gap:8px;">
-    <button class="btn" hx-get="/queue/partial" hx-target="#queue-body" hx-swap="innerHTML">Refresh</button>
-    <button class="btn btn-primary" hx-post="/queue/flush" hx-target="#queue-body" hx-swap="innerHTML" hx-confirm="Flush the mail queue now?">Flush queue</button>
-  </div>
+{{if .Error}}<div class="flash flash-error"><strong>Couldn't read the queue:</strong> {{.Error}}</div>{{end}}
+
+<div class="stat-grid stat-grid-3">
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Being delivered</div><div class="stat-value">{{.Delivering}}</div></div><span class="stat-icon tone-blue">{{icon "send"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">Deferred (will retry)</div><div class="stat-value">{{.Deferred}}</div></div><span class="stat-icon tone-orange">{{icon "clock"}}</span></div></div>
+  <div class="stat-card"><div class="stat-top"><div><div class="stat-label">On hold</div><div class="stat-value">{{.Hold}}</div></div><span class="stat-icon tone-neutral">{{icon "pause"}}</span></div></div>
 </div>
 
-<div class="card">
-  <div id="queue-body">
-    {{template "queue_body" .}}
+<div class="card flush">
+  {{if .Messages}}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Message</th><th>Recipients</th><th>Status</th><th>Queued</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {{range .Messages}}
+        <tr>
+          <td><div class="fw-600 truncate" style="max-width:260px;">{{.Sender}}</div><div class="text-sm text-muted mono">{{.ID}} · {{bytes .Size}}</div></td>
+          <td>
+            {{range $i, $r := .Recipients}}{{if lt $i 3}}<div class="mono text-sm">{{$r.Address}}</div>{{end}}{{end}}
+            {{if gt (len .Recipients) 3}}<div class="text-sm text-muted">+{{add (len .Recipients) -3}} more</div>{{end}}
+          </td>
+          <td style="max-width:360px;">
+            {{if eq .Queue "deferred"}}<span class="badge badge-orange">Deferred</span>{{else if eq .Queue "hold"}}<span class="badge badge-muted">On hold</span>{{else}}<span class="badge badge-blue">{{.Queue}}</span>{{end}}
+            {{with .FirstReason}}<div class="text-sm text-muted mt-2" style="overflow-wrap:anywhere;">{{.}}</div>{{end}}
+          </td>
+          <td class="text-muted nowrap" title="{{.Arrival.Format "2006-01-02 15:04:05"}}">{{timeAgo .Arrival}}</td>
+          <td class="actions">
+            <div class="dropdown" x-data="{ open: false }" @click.outside="open = false">
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" @click="open = !open" aria-label="Actions for {{.ID}}">{{icon "more"}}</button>
+              <div class="dropdown-menu" x-show="open" x-cloak x-transition.opacity>
+                {{if eq .Queue "hold"}}
+                <button hx-post="/queue/{{.ID}}/release">{{icon "play"}} Release</button>
+                {{else}}
+                <button hx-post="/queue/{{.ID}}/retry">{{icon "send"}} Retry now</button>
+                <button hx-post="/queue/{{.ID}}/hold">{{icon "pause"}} Put on hold</button>
+                {{end}}
+                <hr>
+                <button class="danger" hx-post="/queue/{{.ID}}/delete" hx-confirm="Delete message {{.ID}} from {{.Sender}}? It won't be delivered and the sender won't be told.">{{icon "trash"}} Delete</button>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
   </div>
+  {{else if not .Error}}
+  {{template "empty-state" (dict "icon" "check-circle" "title" "The queue is empty" "text" "Every message has been delivered.")}}
+  {{end}}
 </div>
-{{end}}
-
-{{define "queue_body"}}
-<pre class="dns-record">{{if .Queue}}{{.Queue}}{{else}}Mail queue is empty.{{end}}</pre>
 {{end}}

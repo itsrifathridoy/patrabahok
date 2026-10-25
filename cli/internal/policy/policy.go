@@ -8,7 +8,8 @@
 // unauthenticated sender is only trusted for addresses outside the hosted domains
 // (external group members), because anyone can claim a local envelope sender over port
 // 25. Local users must authenticate to post to a restricted group. Unauthenticated
-// loopback clients are trusted, matching permit_mynetworks.
+// loopback clients are trusted, matching permit_mynetworks; authenticated ones are
+// checked like any other session (webmail submits over loopback).
 package policy
 
 import (
@@ -107,11 +108,15 @@ func (s *Server) Decide(ctx context.Context, req Request) string {
 		log.Printf("policy: group lookup for %s: %v", recipient, err)
 		return "DEFER_IF_PERMIT Group policy check temporarily unavailable"
 	}
-	if policy == "anyone" || isLoopback(req.ClientAddress) {
+	authenticated := req.SASLUsername != ""
+	// Unauthenticated loopback clients are local processes (cron, scripts) and are
+	// trusted like permit_mynetworks. Authenticated sessions are always checked, even
+	// from loopback, because webmail submits through 127.0.0.1:587 on behalf of
+	// whichever user is signed in.
+	if policy == "anyone" || (!authenticated && isLoopback(req.ClientAddress)) {
 		return dunno
 	}
 
-	authenticated := req.SASLUsername != ""
 	sender := normalize(req.Sender)
 	if authenticated {
 		sender = normalize(req.SASLUsername)

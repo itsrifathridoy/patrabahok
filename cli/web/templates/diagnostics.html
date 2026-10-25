@@ -84,7 +84,7 @@
   </div>
 
   <div class="card">
-    <h2>fail2ban bans</h2>
+    <div class="toolbar"><h2 class="mt-0 mb-0">fail2ban bans</h2><a class="btn btn-sm" href="/security/bans">Manage bans {{template "icon-arrow-right"}}</a></div>
     {{if .Fail2banErr}}
     <div class="empty">{{.Fail2banErr}}</div>
     {{else if .Fail2ban}}

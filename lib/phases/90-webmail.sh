@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Installs the webmail client chosen in 00-preflight (state "webmail"): Roundcube, the
-# project's own patrabahok Mail (mail-client/), or none. Either way the webmail only
+# Installs the webmail client chosen in 00-preflight (state "webmail"):
+#   patrabahok (default) — the Roundcube engine with patrabahok's skin and plugin
+#                          (webmail/roundcube/ in this repo) overlaid on the pinned release
+#   roundcube            — stock Roundcube (Elastic skin)
+#   custom               — the Next.js client in mail-client/
+#   none Either way the webmail only
 # listens on loopback. patrabahokd's public :443 listener terminates TLS and
 # reverse-proxies to the upstream recorded here as state "webmail_upstream" (see
 # cli/internal/frontdoor).
@@ -56,9 +60,9 @@ choose_webmail() {
     printf '%s' "$current"
     return 0
   fi
-  ask WEBMAIL "Webmail client (roundcube / custom / none)" "roundcube"
+  ask WEBMAIL "Webmail client (patrabahok / roundcube / custom / none)" "patrabahok"
   ask_finalize
-  normalize_webmail_choice "$WEBMAIL" || die "Invalid webmail choice: $WEBMAIL (expected roundcube, custom, or none)"
+  normalize_webmail_choice "$WEBMAIL" || die "Invalid webmail choice: $WEBMAIL (expected patrabahok, roundcube, custom, or none)"
 }
 
 # download_verified URL SHA256 OUTPUT
@@ -73,7 +77,65 @@ download_verified() {
 
 # --- Roundcube ----------------------------------------------------------------------
 
+# setup_managesieve: Dovecot's ManageSieve service, bound to loopback, so webmail users
+# can manage their own filters, vacation replies and forwarding (Roundcube's managesieve
+# plugin). Scripts live where Dovecot already looks (sieve = file:~/sieve).
+setup_managesieve() {
+  log_info "Enabling Dovecot ManageSieve (loopback only) for filters and vacation replies..."
+  apt_install dovecot-managesieved
+  # Named to sort after 99-patrabahok.conf, which sets "protocols = imap lmtp".
+  cat > /etc/dovecot/conf.d/99-zz-patrabahok-managesieve.conf <<'EOF'
+# Managed by patrabahok (lib/phases/90-webmail.sh). ManageSieve for webmail only: bound
+# to loopback and never opened in the firewall.
+protocols = $protocols sieve
+service managesieve-login {
+  inet_listener sieve {
+    address = 127.0.0.1
+    port = 4190
+  }
+}
+EOF
+  doveconf -n >/dev/null 2>&1 || { doveconf -n; die "Dovecot configuration test failed after enabling ManageSieve."; }
+  systemctl restart dovecot
+}
+
+# keep_php_patched: PHP serves the webmail to the internet, so a PHP remote-code-execution
+# bug (e.g. "php2shell", CVE-2026-109618/109619) is a direct path into the server.
+#  - upgrade every installed PHP package to the distro's newest (security) build now
+#  - make sure unattended security upgrades run daily
+#  - restart PHP-FPM after any upgrade that replaced its binary (apt hook), since a
+#    running FPM keeps executing the old, vulnerable code until it restarts
+# Distro packages backport fixes without changing PHP's version (Ubuntu 24.04's fixed
+# php8.3 still reports 8.3.6), so the package, not `php -v`, is what to check.
+keep_php_patched() {
+  log_info "Updating PHP to the latest security build..."
+  apt-get update -qq || log_warn "apt-get update failed; using the cached package lists."
+  local -a php_pkgs=()
+  mapfile -t php_pkgs < <(dpkg-query -W -f='${binary:Package} ${db:Status-Abbrev}\n' 'php*' 2>/dev/null | awk '$2 ~ /^ii/ {print $1}')
+  if [ "${#php_pkgs[@]}" -gt 0 ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --only-upgrade "${php_pkgs[@]}" \
+      || log_warn "Could not upgrade PHP packages; check 'apt list --upgradable'."
+  fi
+
+  apt_install unattended-upgrades
+  if [ ! -f /etc/apt/apt.conf.d/20auto-upgrades ] || ! grep -q 'Unattended-Upgrade "1"' /etc/apt/apt.conf.d/20auto-upgrades; then
+    cat > /etc/apt/apt.conf.d/20auto-upgrades <<'APT'
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT
+  fi
+
+  install -m 0755 "$PATRABAHOK_HOME/templates/php/patrabahok-php-restart-if-updated.sh" /usr/local/sbin/patrabahok-php-restart-if-updated
+  cat > /etc/apt/apt.conf.d/99patrabahok-php-restart <<'APT'
+// Managed by patrabahok: restart PHP-FPM when a package upgrade replaced its binary.
+DPkg::Post-Invoke { "/usr/local/sbin/patrabahok-php-restart-if-updated || true"; };
+APT
+  log_ok "PHP $(dpkg-query -W -f='${Version}' "php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')-fpm" 2>/dev/null) (latest available from the distro)."
+}
+
+# install_roundcube FLAVOR — FLAVOR is "patrabahok" (patrabahok skin + plugin) or "roundcube".
 install_roundcube() {
+  local flavor="${1:-patrabahok}"
   local hostname mail_db_name
   hostname="$(state_get hostname)"
   mail_db_name="$(state_get db_name)"
@@ -81,6 +143,7 @@ install_roundcube() {
 
   log_info "Installing nginx and PHP-FPM for Roundcube..."
   apt_install nginx php-fpm php-cli php-mysql php-intl php-mbstring php-xml php-zip php-gd php-curl media-types curl
+  keep_php_patched
   # The nginx package enables a default site on :80, and certbot's standalone renewal
   # (phase 40-tls) needs that port free. Only the loopback site below stays enabled.
   rm -f /etc/nginx/sites-enabled/default
@@ -103,6 +166,43 @@ install_roundcube() {
     chown -R root:root "$release"
   fi
   ln -sfn "$release" "${ROUNDCUBE_ROOT}/current"
+
+  # The patrabahok skin and plugin come from this repo and are refreshed on every run,
+  # so an upgrade picks up their changes even when the Roundcube release is unchanged.
+  local skin="elastic"
+  local plugins="'archive', 'zipdownload', 'password', 'managesieve', 'markasjunk', 'newmail_notifier', 'attachment_reminder', 'emoticons', 'hide_blockquote', 'vcard_attachments'"
+  local product="Webmail"
+  if [ "$flavor" = "patrabahok" ]; then
+    local src="$PATRABAHOK_HOME/webmail/roundcube"
+    [ -f "$src/skins/patrabahok/meta.json" ] || die "patrabahok webmail skin not found at $src"
+    rm -rf "${release}/skins/patrabahok" "${release}/plugins/patrabahok" "${release}/plugins/patrabahok_guard"
+    cp -r "$src/skins/patrabahok" "${release}/skins/patrabahok"
+    cp -r "$src/plugins/patrabahok" "${release}/plugins/patrabahok"
+    cp -r "$src/plugins/patrabahok_guard" "${release}/plugins/patrabahok_guard"
+    rm -rf "${release}/skins/patrabahok/styles/src"
+    chown -R root:root "${release}/skins/patrabahok" "${release}/plugins/patrabahok" "${release}/plugins/patrabahok_guard"
+    # patrabahok_guard scans attachments through clamd's socket (phase 70). Debian's
+    # clamd.conf makes it world-writable (LocalSocketMode 666); group membership keeps
+    # it working when an admin tightens that to 660.
+    if getent group clamav >/dev/null 2>&1; then
+      usermod -aG clamav www-data
+    fi
+    # The guard's "verified sender" and DMARC/SPF warnings read the Authentication-Results
+    # header Rspamd adds. Phase 70 renders this template on new installs; refresh it here
+    # so upgraded servers get it without re-running phase 70.
+    if [ -d /etc/rspamd/local.d ]; then
+      local mh=/etc/rspamd/local.d/milter_headers.conf
+      local mh_old=""
+      [ -f "$mh" ] && mh_old="$(cat "$mh")"
+      render_template "$PATRABAHOK_HOME/templates/rspamd/local.d/milter_headers.conf.tmpl" "$mh"
+      if [ "$(cat "$mh")" != "$mh_old" ] && systemctl is-active --quiet rspamd; then
+        rspamadm configtest >/dev/null 2>&1 && systemctl reload rspamd
+      fi
+    fi
+    skin="patrabahok"
+    plugins="'patrabahok', 'patrabahok_guard', ${plugins}"
+    product="patrabahok Webmail"
+  fi
 
   mkdir -p /var/log/roundcube /var/lib/roundcube/temp
   touch /var/log/roundcube/errors.log
@@ -132,7 +232,7 @@ SQL
   # des_key encrypts IMAP passwords in sessions and must be exactly 24 characters.
   render_template "$PATRABAHOK_HOME/templates/roundcube/config.inc.php.tmpl" "${release}/config/config.inc.php" \
     "DB_PASSWORD=${ROUNDCUBE_DB_PASSWORD}" "MAIL_HOSTNAME=${hostname}" "DES_KEY=${ROUNDCUBE_DES_KEY:0:24}" \
-    "PRODUCT_NAME=Webmail"
+    "PRODUCT_NAME=${product}" "SKIN=${skin}" "PLUGINS=${plugins}"
   render_template "$PATRABAHOK_HOME/templates/roundcube/password.config.inc.php.tmpl" "${release}/plugins/password/config.inc.php" \
     "PW_DB_PASSWORD=${ROUNDCUBE_PW_DB_PASSWORD}" "MAIL_DB_NAME=${mail_db_name}"
   chown root:www-data "${release}/config/config.inc.php" "${release}/plugins/password/config.inc.php"
@@ -168,6 +268,8 @@ EOF
 }
 EOF
 
+  setup_managesieve
+
   systemctl enable "php${php_ver}-fpm" nginx >/dev/null 2>&1
   systemctl restart "php${php_ver}-fpm"
   systemctl restart nginx
@@ -176,7 +278,12 @@ EOF
   systemctl restart fail2ban || log_warn "fail2ban did not restart cleanly. Check 'fail2ban-client status'."
 
   state_set webmail_upstream "http://127.0.0.1:${ROUNDCUBE_PORT}"
-  log_ok "Roundcube ${ROUNDCUBE_VERSION} installed (users log in with their full email address and can change their password under Settings)."
+  state_set webmail_built_version "${PATRABAHOK_INSTALLER_VERSION:-dev}"
+  if [ "$flavor" = "patrabahok" ]; then
+    log_ok "patrabahok Webmail installed (Roundcube ${ROUNDCUBE_VERSION} engine). Users sign in with their full email address."
+  else
+    log_ok "Roundcube ${ROUNDCUBE_VERSION} installed (users log in with their full email address and can change their password under Settings)."
+  fi
 }
 
 remove_roundcube() {
@@ -299,9 +406,9 @@ phase_run() {
   state_set webmail "$webmail"
 
   case "$webmail" in
-    roundcube)
+    patrabahok|roundcube)
       remove_mail_client
-      install_roundcube
+      install_roundcube "$webmail"
       ;;
     custom)
       remove_roundcube

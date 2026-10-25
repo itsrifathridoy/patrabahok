@@ -4,6 +4,40 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The patrabahok logo across the admin dashboard and the webmail: sign-in pages (with a
+  white-wordmark variant on dark backgrounds), the sidebar/rail mark, favicons and touch icons.
+  The assets are generated from `tools/brand/Patrabahok_Logo.png` by
+  `tools/brand/make_logos.py`.
+- Public API integration guide in docs/PUBLIC-API.md: quick start, endpoint summary,
+  ready-to-use clients for JavaScript, Python and PHP, common workflows (provisioning,
+  password resets, offboarding, nightly sync, class lists), retry rules and a security
+  checklist.
+- **patrabahok Webmail**, the new default webmail (`webmail/roundcube/`): Roundcube 1.7 as the
+  engine with a completely redesigned interface, light and dark, responsive from phone to wide
+  desktop: a three-pane layout with card-style message rows (text preview, attachment chips,
+  avatars, star), a reader with a "1 of N" pager, sender verification badge and inline quick
+  reply, a split-screen sign-in, and a composer with the identity as a pill, recipient chips, a
+  floating formatting bar on text selection, smart-reply chips, attachment cards and a send bar
+  with a split "Send now" button. The `patrabahok` plugin adds undo send (0–30 s, also for quick
+  replies), a Ctrl/Cmd+K command palette, Gmail-style keyboard shortcuts with a `?` cheat sheet,
+  a quick filter menu, hover Archive/read/unread actions, an emoji picker, focus mode, a word
+  count and a discard button. The left app bar collapses to icons or expands to icons with labels
+  (remembered per browser), dialogs are redesigned (bottom sheets on phones), and in dark mode
+  plain HTML mail follows the theme while designed newsletters keep their own look.
+- **patrabahok_guard** webmail plugin (`webmail/roundcube/plugins/patrabahok_guard`):
+  - phishing and spoofing warnings in the reader: mismatched link text, IP or punycode hosts,
+    brand and own-domain lookalikes, display-name spoofing, Reply-To mismatches, DMARC/SPF
+    failures and Rspamd phishing symbols. Risky links are marked and ask before opening.
+  - every attachment is scanned with ClamAV (clamd INSTREAM). Infected parts show a badge and
+    are never served (download, open or "download all"). Infected uploads in the composer are
+    rejected.
+  - Rspamd now adds an `Authentication-Results` header (`milter_headers.conf`), which the reader
+    uses for the "verified sender" badge. Phase 90 refreshes it on upgraded servers.
+- Filters, vacation replies and forwarding rules in the webmail work
+  through Dovecot ManageSieve (loopback only, `dovecot-managesieved`), and the archive,
+  markasjunk, zipdownload, newmail_notifier, attachment_reminder, emoticons, hide_blockquote and
+  vcard_attachments plugins are enabled. Existing servers switch with
+  `PATRABAHOK_WEBMAIL=patrabahok patrabahok-installer --force-phase 90-webmail`.
 - Groups (distribution lists), like Google Groups: one address delivers to every member. They
   support member/owner roles, nesting, optional external members, and a posting policy (`anyone`,
   `organization`, `members`, `owners`) enforced at SMTP time by a new Postfix policy service in
@@ -39,7 +73,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`cli/internal/frontdoor`) now also serves the public API and reverse-proxies the webmail
   (`-webmail-upstream`).
 
+- Dashboard server operations (`cli/internal/ops`): **Firewall & bans** (fail2ban jails,
+  unban/ban, a never-ban allowlist, self-unban), **Services** (status, logs and safe
+  start/stop/restart/reload for every service, Rspamd and ClamAV stats), a real **Mail queue**
+  (retry/hold/release/delete per message), and a **Logs** viewer with filtering and live mode.
+  Every action is audited and runs fixed, validated commands.
+- Re-running the installer after an upgrade now rebuilds `patrabahok`/`patrabahokd` when the
+  release version changed. Before, they kept running the old binaries.
+
+### Security
+- PHP is kept patched for the webmail (e.g. "php2shell", CVE-2026-109618/109619): phase 90
+  upgrades every installed PHP package to the distro's latest security build, enables daily
+  unattended security upgrades, and installs an apt hook that restarts PHP-FPM whenever an
+  upgrade replaces its binary (a running FPM keeps executing the old code until restarted).
+  `verify` now fails on pending PHP updates or a PHP-FPM still running a replaced binary.
+- Mailbox addresses are now validated as RFC 5322 dot-atoms. Before, a local part such as
+  `../../x` let mailbox create/delete (as root, from the dashboard, CLI or local API) reach paths
+  outside `/var/mail/vhosts`.
+- Passwords are hashed in-process instead of by `doveadm pw -p <password>`, which exposed them in
+  the process list.
+- The group policy service no longer trusts authenticated loopback sessions. Webmail submits
+  through 127.0.0.1:587, so any webmail user could post to owners-only groups.
+- Changing an admin password signs out that admin's other sessions (new
+  `patrabahok webadmin passwd`), and the initial admin password is no longer written to
+  `install.log`.
+
 ### Fixed
+- The installer's A/MX pre-check always reported "not confirmed" (it passed `dig` one quoted
+  argument), and Postfix warned about backwards-compatible defaults (`compatibility_level` is now
+  3.6).
+- New mailboxes only had INBOX; Dovecot now auto-creates Drafts/Sent/Junk/Trash/Archive.
 - Setting a mailbox's quota to its current value reported "not found", because MariaDB counts an
   unchanged row as zero affected rows.
 

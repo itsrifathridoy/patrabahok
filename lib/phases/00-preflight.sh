@@ -42,7 +42,10 @@ detect_public_ip() {
 check_dns_record() {
   local label="$1" query="$2" expect_substring="$3"
   local result
-  result=$(dig +short "$query" @1.1.1.1 2>/dev/null || true)
+  # $query is "TYPE NAME" and must reach dig as two arguments: quoted as one, dig
+  # looks up a literal name "A mail.example.com" and the check could never pass.
+  local qtype="${query%% *}" qname="${query#* }"
+  result=$(dig +short "$qtype" "$qname" @1.1.1.1 2>/dev/null || true)
   if [ -n "$result" ] && printf '%s' "$result" | grep -qi -- "$expect_substring"; then
     log_ok "$label: OK ($result)"
     return 0
@@ -127,12 +130,13 @@ phase_run() {
 
   echo
   log_info "Webmail client, served at https://${MAIL_HOSTNAME}/:"
-  log_info "  roundcube - Roundcube, the widely used open-source webmail (PHP)"
-  log_info "  custom    - patrabahok Mail, this project's own webmail (Node.js + PostgreSQL)"
-  log_info "  none      - no webmail; users connect with desktop/mobile mail apps only"
-  ask WEBMAIL "Webmail client (roundcube / custom / none)" "roundcube"
+  log_info "  patrabahok - patrabahok Webmail: a modern, redesigned client on the Roundcube engine (recommended)"
+  log_info "  roundcube  - stock Roundcube with its default look"
+  log_info "  custom     - the experimental Next.js client (Node.js + PostgreSQL)"
+  log_info "  none       - no webmail; users connect with desktop/mobile mail apps only"
+  ask WEBMAIL "Webmail client (patrabahok / roundcube / custom / none)" "patrabahok"
   local webmail
-  webmail="$(normalize_webmail_choice "$WEBMAIL")" || die "Invalid webmail choice: $WEBMAIL (expected roundcube, custom, or none)"
+  webmail="$(normalize_webmail_choice "$WEBMAIL")" || die "Invalid webmail choice: $WEBMAIL (expected patrabahok, roundcube, custom, or none)"
 
   ask_finalize
 

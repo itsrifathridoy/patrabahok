@@ -1,0 +1,92 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-blue">{{icon "server"}}</div>
+  <div>
+    <h1>Services</h1>
+    <p class="subtitle">The programs that make up this mail server. {{.Running}} of {{len .Services}} are running.</p>
+  </div>
+  <div class="page-actions"><a class="btn" href="/services">{{icon "refresh"}} Refresh</a></div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:18px;">
+  <div class="card">
+    <div class="flex items-center gap-3 mb-4"><span class="stat-icon tone-orange">{{icon "shield"}}</span><div><h2 class="mb-0">Spam filter</h2><div class="text-sm text-muted">Rspamd, since its statistics were last reset</div></div></div>
+    {{if .Spam.Available}}
+    <div class="flex gap-3" style="flex-wrap:wrap;margin-bottom:12px;">
+      <div><div class="stat-label">Scanned</div><div class="stat-value" style="font-size:22px;">{{.Spam.Scanned}}</div></div>
+      <div><div class="stat-label">Learned</div><div class="stat-value" style="font-size:22px;">{{.Spam.Learned}}</div></div>
+    </div>
+    <div class="domain-bars">
+      {{range .Spam.Actions}}
+      <div class="row">
+        <span class="label">{{.Action}}</span>
+        <div class="progress"><div class="progress-bar {{if eq .Action "reject"}}danger{{else if or (eq .Action "add header") (eq .Action "rewrite subject") (eq .Action "greylist")}}warn{{end}}" style="width: {{printf "%.0f" .Percent}}%"></div></div>
+        <span class="count">{{.Count}}</span>
+      </div>
+      {{end}}
+    </div>
+    {{else}}<p class="text-muted text-sm mb-0">Statistics unavailable. Is Rspamd running?</p>{{end}}
+  </div>
+  <div class="card">
+    <div class="flex items-center gap-3 mb-4"><span class="stat-icon tone-green">{{icon "shield-ban"}}</span><div><h2 class="mb-0">Antivirus</h2><div class="text-sm text-muted">ClamAV scans every incoming message</div></div></div>
+    {{if .AV.Available}}
+    <dl class="kv">
+      <dt>Engine</dt><dd class="mono">{{.AV.Engine}}</dd>
+      <dt>Signatures</dt><dd class="mono">{{if .AV.Signature}}#{{.AV.Signature}}{{else}}—{{end}}</dd>
+      <dt>Last update</dt><dd>{{if .AV.Updated}}{{.AV.Updated}}{{else}}—{{end}}</dd>
+    </dl>
+    <p class="text-sm text-muted mt-4 mb-0">Freshclam updates signatures automatically. Restart Freshclam below to update now.</p>
+    {{else}}<p class="text-muted text-sm mb-0">ClamAV isn't responding. It needs about a minute to load after starting.</p>{{end}}
+  </div>
+</div>
+
+<div class="card flush">
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Service</th><th>Status</th><th>Up since</th><th class="num">Memory</th><th class="actions">Actions</th></tr></thead>
+      <tbody>
+        {{range .Services}}
+        <tr>
+          <td>
+            <div class="entity">
+              <span class="avatar sq {{if .Running}}tone-green{{else if eq .Active "failed"}}tone-red{{else}}tone-neutral{{end}}">{{icon "server"}}</span>
+              <div class="entity-text"><div class="entity-title">{{.Label}} <span class="mono text-muted text-sm" style="font-weight:400;">{{.Unit}}</span></div><div class="entity-sub">{{.Description}}</div></div>
+            </div>
+          </td>
+          <td>
+            {{if .Running}}<span class="badge badge-green badge-dot">Running</span>
+            {{else if eq .Active "failed"}}<span class="badge badge-red badge-dot">Failed</span>
+            {{else if eq .Active "activating"}}<span class="badge badge-orange badge-dot">Starting</span>
+            {{else}}<span class="badge badge-muted badge-dot">{{.Active}}</span>{{end}}
+            {{if not .Enabled}}<div class="text-sm text-muted mt-2">not started at boot</div>{{end}}
+          </td>
+          <td class="text-muted nowrap">{{if and .Running (not .Since.IsZero)}}{{timeAgo .Since}}{{else}}—{{end}}</td>
+          <td class="num text-muted">{{if .MemoryBytes}}{{bytes .MemoryBytes}}{{else}}—{{end}}</td>
+          <td class="actions">
+            <button type="button" class="btn btn-ghost btn-sm" hx-get="/services/{{.Unit}}/logs" hx-target="#logs-body" hx-swap="innerHTML"
+              onclick="document.getElementById('logs-title').textContent={{.Label}} + ' logs';document.getElementById('service-logs').showModal()">{{icon "file"}} Logs</button>
+            {{$s := .}}
+            {{if and (not .Running) (.Allows "start")}}<button class="btn btn-sm btn-success" hx-post="/services/{{.Unit}}/start">{{icon "play"}} Start</button>{{end}}
+            {{if and .Running (.Allows "reload")}}<button class="btn btn-sm" hx-post="/services/{{.Unit}}/reload" title="Re-read configuration without interrupting connections">{{icon "refresh"}} Reload</button>{{end}}
+            {{if .Allows "restart"}}<button class="btn btn-sm" hx-post="/services/{{.Unit}}/restart" hx-confirm="Restart {{.Label}}?{{with .Warning}} {{.}}{{end}}">{{icon "refresh"}} Restart</button>{{end}}
+            {{if and .Running (.Allows "stop")}}<button class="btn btn-sm btn-danger" hx-post="/services/{{.Unit}}/stop" hx-confirm="Stop {{.Label}}?{{with .Warning}} {{.}}{{end}}">{{icon "square"}} Stop</button>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<dialog class="modal wide" id="service-logs" aria-labelledby="logs-title">
+  <div class="modal-header">
+    <span class="stat-icon tone-blue">{{icon "file"}}</span>
+    <div><h2 id="logs-title">Logs</h2><p>Last 200 lines from the system journal</p></div>
+    <button type="button" class="icon-btn" data-close aria-label="Close">{{icon "x"}}</button>
+  </div>
+  <div class="modal-body" id="logs-body"><p class="text-muted">Loading…</p></div>
+  <div class="modal-footer"><a class="btn" href="/logs">Open the log viewer</a><button type="button" class="btn btn-primary" data-close>Close</button></div>
+</dialog>
+{{end}}
+
+{{define "service_logs"}}<pre class="dns-record log-view" style="max-height:60vh;">{{.Logs}}</pre>{{end}}

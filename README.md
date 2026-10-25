@@ -34,7 +34,10 @@ for exactly what the bootstrap does and how it verifies what it downloads.
   alternate addresses; **groups** (distribution lists with member/owner roles, nesting, external
   members, and "who can post" policies enforced by Postfix); catch-all addresses; bulk CSV user
   import; and an audit log of every change
-- Webmail at `https://<hostname>/`, chosen at install time: Roundcube or patrabahok Mail
+- Webmail at `https://<hostname>/`, chosen at install time: patrabahok Webmail (default; a
+  redesigned Roundcube with message previews, a modern composer, undo send,
+  quick reply, ClamAV attachment scanning and phishing-link warnings), stock Roundcube, or the
+  experimental Next.js client
 - A public per-domain HTTPS API (`https://<hostname>/api/<domain>/mailbox`) for creating and
   managing a domain's mailboxes from another system, with one API key per domain
 

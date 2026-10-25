@@ -32,6 +32,9 @@ apply_mail_routing() {
   # If the policy service is unreachable, defer (the sender retries) rather than
   # silently letting restricted posts through.
   postconf -e "smtpd_policy_service_default_action=451 4.3.5 Group policy service unavailable, try again later"
+  # Every supported OS ships Postfix 3.6 or newer; a lower level makes each Postfix
+  # command warn about "backwards-compatible default settings".
+  postconf -e "compatibility_level=3.6"
   # Postfix's default of 1000 addresses per expansion is smaller than a school-wide group.
   postconf -e "virtual_alias_expansion_limit=20000"
 }

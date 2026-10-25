@@ -148,7 +148,13 @@ func (s *Store) ChangePassword(ctx context.Context, username, newPassword string
 	if n == 0 {
 		return fmt.Errorf("no admin user named %q", username)
 	}
-	return nil
+	// A password change is often a response to a suspected compromise, so it ends every
+	// existing session for the account. Callers that want to keep the current browser
+	// signed in create a fresh session afterward.
+	_, err = s.db.ExecContext(ctx, `
+		DELETE s FROM admin_sessions s JOIN admin_users u ON u.id = s.admin_user_id
+		WHERE u.username = ?`, username)
+	return err
 }
 
 // Authenticate checks credentials and records a successful login. Returns

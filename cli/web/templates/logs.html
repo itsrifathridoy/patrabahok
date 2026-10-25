@@ -1,0 +1,37 @@
+{{define "content"}}
+<div class="page-header">
+  <div class="page-header-icon tone-neutral">{{icon "file"}}</div>
+  <div>
+    <h1>Logs</h1>
+    <p class="subtitle">Recent activity from the mail server's own logs. Newest lines are at the bottom.</p>
+  </div>
+</div>
+
+<div class="card flush" id="logs-panel" x-data="{ live: false, timer: null }"
+     x-init="$watch('live', v => { clearInterval(timer); if (v) timer = setInterval(() => htmx.trigger($refs.form, 'submit'), 5000) })">
+  <form x-ref="form" class="table-toolbar" method="get" action="/logs"
+        hx-get="/logs" hx-target="#log-output" hx-select="#log-output" hx-swap="outerHTML" hx-push-url="true"
+        hx-trigger="submit, change from:select, input changed delay:400ms from:input[name=q]">
+    <select name="source" aria-label="Log">
+      {{range .Sources}}<option value="{{.Key}}" {{if eq .Key $.Source}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+    <div class="search">{{icon "search"}}<input type="search" name="q" value="{{.Query}}" placeholder="Filter, e.g. an address or an IP" aria-label="Filter lines"></div>
+    <select name="lines" aria-label="Lines">
+      {{range $n := (list 100 200 500 1000 2000)}}<option value="{{$n}}" {{if eq $n $.Lines}}selected{{end}}>Last {{$n}}</option>{{end}}
+    </select>
+    <span class="spacer"></span>
+    <label class="check" style="align-items:center;"><input type="checkbox" x-model="live"> <span>Live (every 5s)</span></label>
+  </form>
+
+  <div id="log-output">
+    {{range .Sources}}{{if eq .Key $.Source}}<div class="card-body text-sm text-muted" style="padding-bottom:0;">{{.Description}}</div>{{end}}{{end}}
+    {{if .Error}}<div class="card-body"><div class="flash flash-error mb-0">{{.Error}}</div></div>
+    {{else if .Entries}}
+    <pre class="log-view" data-autoscroll>{{range .Entries}}<span class="log-line {{.Level}}">{{.Text}}</span>{{end}}</pre>
+    <div class="table-footer"><span>{{len .Entries}} line{{if ne (len .Entries) 1}}s{{end}}{{if .Query}} matching “{{.Query}}”{{end}}</span></div>
+    {{else}}
+    {{template "empty-state" (dict "icon" "file" "title" "No matching lines" "text" "Try a different filter or a larger number of lines.")}}
+    {{end}}
+  </div>
+</div>
+{{end}}

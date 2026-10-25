@@ -29,10 +29,18 @@ You'll be asked for:
 - **Mail server hostname** (e.g. `mail.example.com`, defaults to `mail.<domain>`)
 - **Admin email** (used for Let's Encrypt, postmaster, DMARC aggregate reports)
 - **Webmail client**, served at `https://<mail hostname>/`:
-  - `roundcube` (the default): [Roundcube](https://roundcube.net) 1.7, the widely used open-source
-    webmail. It runs on nginx + PHP-FPM on loopback only, users can change their own password
-    under Settings, and failed logins are banned by fail2ban.
-  - `custom`: patrabahok Mail (`mail-client/`), this project's own webmail (Node.js + PostgreSQL).
+  - `patrabahok` (the default): patrabahok Webmail, a redesigned client built on the
+    [Roundcube](https://roundcube.net) 1.7 engine (`webmail/roundcube/`). It has a new interface
+    (light and dark, phone to desktop), message previews, a modern
+    composer with undo send, inline quick reply, a command palette (Ctrl/Cmd+K) and keyboard
+    shortcuts. Attachments are virus-scanned with ClamAV and suspicious links and spoofed senders
+    are flagged in the reader. Every Roundcube feature stays: contacts, filters and vacation
+    replies (ManageSieve), password change, archive, junk reporting, zip download and new-mail
+    notifications.
+  - `roundcube`: the same engine with Roundcube's stock Elastic look.
+
+    Both run on nginx + PHP-FPM on loopback only, and failed logins are banned by fail2ban.
+  - `custom`: the experimental Next.js client (`mail-client/`, Node.js + PostgreSQL).
   - `none`: no webmail. Users connect with desktop or mobile mail apps.
 
 The installer checks DNS (A record for the hostname, MX for the domain) before proceeding and
@@ -56,7 +64,7 @@ cat > /root/patrabahok-answers.env <<'EOF'
 PATRABAHOK_DOMAIN=example.com
 PATRABAHOK_MAIL_HOSTNAME=mail.example.com
 PATRABAHOK_ADMIN_EMAIL=postmaster@example.com
-PATRABAHOK_WEBMAIL=roundcube   # roundcube (default), custom, or none
+PATRABAHOK_WEBMAIL=patrabahok  # patrabahok (default), roundcube, custom, or none
 EOF
 
 curl -sSL https://patrabahok.com/install.sh | sh -s -- --yes --non-interactive --config /root/patrabahok-answers.env
@@ -95,8 +103,11 @@ Re-run the webmail phase with the new choice. The previous client is disabled, b
 is kept:
 
 ```
-PATRABAHOK_WEBMAIL=custom /opt/patrabahok/current/bin/patrabahok-installer install --force-phase 90-webmail
+PATRABAHOK_WEBMAIL=patrabahok /opt/patrabahok/current/bin/patrabahok-installer install --force-phase 90-webmail
 ```
+
+Switching between `patrabahok` and `roundcube` keeps every user's settings, contacts and
+filters, because they share one Roundcube database.
 
 ## Upgrading
 
@@ -111,5 +122,5 @@ Pin a specific version instead of latest with `--version vX.Y.Z`.
 
 Upgrading a server installed before the webmail phase existed runs `90-webmail` for the first
 time, which asks for a webmail client (in `--non-interactive` mode it uses `PATRABAHOK_WEBMAIL`,
-defaulting to `roundcube`). It also rebuilds `patrabahokd` so the public API and webmail are
+defaulting to `patrabahok`). It also rebuilds `patrabahokd` so the public API and webmail are
 served on `:443`.

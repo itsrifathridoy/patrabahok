@@ -42,8 +42,9 @@ blocks login and delivery for a mailbox but keeps its stored mail. `enable` reve
 
 The domain must already be added (`patrabahok domain add`) before adding a mailbox in it. If
 `--password` isn't given, you'll be prompted twice (hidden input, via `golang.org/x/term`).
-Passwords are hashed with `doveadm pw -s SHA512-CRYPT` (invoked via `argv`, never through a
-shell) before being stored — plaintext passwords are never written to disk or logs.
+Passwords are hashed in-process as Dovecot `{SHA512-CRYPT}` (`cli/internal/mailbox/sha512crypt.go`)
+before being stored. They never appear on a command line, on disk, or in logs. Addresses must be
+RFC 5322 dot-atoms (no `/`, no `..`), because the local part becomes a directory name.
 
 `--quota`/`mailbox quota` set `quota_bytes` per mailbox in the database, and it's genuinely
 enforced by Dovecot — not just stored. `dovecot-sql.conf.ext`'s `user_query` returns
@@ -174,6 +175,7 @@ in v1 — finer read/write splitting is a possible future refinement, not implem
 ```
 patrabahok webadmin add <username> [--password PASS]
 patrabahok webadmin list
+patrabahok webadmin passwd <username> [--password PASS]   # also signs out their sessions
 patrabahok webadmin remove <username>
 ```
 

@@ -1,0 +1,47 @@
+<roundcube:include file="includes/layout.html" />
+
+<h1 class="voice"><roundcube:object name="productname" /> <roundcube:label name="login" /></h1>
+
+<div id="layout-content" class="selected no-navbar pb-login" role="main">
+	<section class="pb-login-hero" aria-hidden="true">
+		<div class="pb-login-brand">
+			<img src="/images/logo-mark.png" alt="" class="pb-login-mark">
+			<span><roundcube:object name="productname" /></span>
+		</div>
+		<div class="pb-login-pitch">
+			<h2>Email that keeps up with your day.</h2>
+			<p>A fast, focused inbox for everyone in your organization, on any device.</p>
+			<ul>
+				<li><span class="pb-dot"></span>A clean, fast inbox with message previews on every device</li>
+				<li><span class="pb-dot"></span>Every attachment scanned for viruses, suspicious links flagged before you click</li>
+				<li><span class="pb-dot"></span>Undo send, quick replies, shortcuts and a command palette</li>
+			</ul>
+		</div>
+		<div class="pb-login-foot">Secured with TLS · Hosted on your organization's own server</div>
+	</section>
+
+	<section class="pb-login-panel">
+		<div class="pb-login-card">
+			<img src="/images/logo-full.png" alt="patrabahok" class="pb-login-logo pb-logo-light">
+			<img src="/images/logo-full-dark.png" alt="patrabahok" class="pb-login-logo pb-logo-dark">
+			<h2 class="pb-login-title"><roundcube:label name="login" /></h2>
+			<p class="pb-login-sub"><roundcube:object name="productname" /></p>
+			<roundcube:form id="login-form" name="login-form" method="post" class="propform">
+			<roundcube:object name="loginform" form="login-form" size="40" submit=true class="form-control" />
+				<div id="login-footer" role="contentinfo">
+					<roundcube:object name="version" condition="config:display_product_info == 2" />
+					<roundcube:if condition="config:support_url" />
+						<a href="<roundcube:var name='config:support_url' />" target="_blank" rel="noopener" class="support-link"><roundcube:label name="support" /></a>
+					<roundcube:endif />
+					<roundcube:container name="loginfooter" id="login-footer" />
+				</div>
+			</form>
+		</div>
+	</section>
+</div>
+
+<noscript>
+	<p class="noscriptwarning"><roundcube:label name="noscriptwarning" /></p>
+</noscript>
+
+<roundcube:include file="includes/footer.html" />

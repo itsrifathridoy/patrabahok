@@ -113,8 +113,21 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /dkim/rotate", s.requireAuth(s.handleDKIMRotate))
 
 	s.mux.HandleFunc("GET /queue", s.requireAuth(s.handleQueuePage))
-	s.mux.HandleFunc("GET /queue/partial", s.requireAuth(s.handleQueuePartial))
 	s.mux.HandleFunc("POST /queue/flush", s.requireAuth(s.handleQueueFlush))
+	s.mux.HandleFunc("POST /queue/delete-deferred", s.requireAuth(s.handleQueueDeleteDeferred))
+	s.mux.HandleFunc("POST /queue/{id}/{action}", s.requireAuth(s.handleQueueAction))
+
+	s.mux.HandleFunc("GET /security/bans", s.requireAuth(s.handleBansPage))
+	s.mux.HandleFunc("POST /security/bans/unban", s.requireAuth(s.handleUnban))
+	s.mux.HandleFunc("POST /security/bans/ban", s.requireAuth(s.handleBan))
+	s.mux.HandleFunc("POST /security/allowlist", s.requireAuth(s.handleAllowlistAdd))
+	s.mux.HandleFunc("DELETE /security/allowlist", s.requireAuth(s.handleAllowlistRemove))
+
+	s.mux.HandleFunc("GET /services", s.requireAuth(s.handleServicesPage))
+	s.mux.HandleFunc("POST /services/{unit}/{action}", s.requireAuth(s.handleServiceAction))
+	s.mux.HandleFunc("GET /services/{unit}/logs", s.requireAuth(s.handleServiceLogs))
+
+	s.mux.HandleFunc("GET /logs", s.requireAuth(s.handleLogsPage))
 
 	s.mux.HandleFunc("GET /diagnostics", s.requireAuth(s.handleDiagnosticsPage))
 	s.mux.HandleFunc("GET /diagnostics/partial", s.requireAuth(s.handleDiagnosticsPartial))
@@ -134,6 +147,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /settings/cloudflare/oauth-client", s.requireAuth(s.handleCloudflareOAuthClientSave))
 	s.mux.HandleFunc("GET /settings/cloudflare/authorize", s.requireAuth(s.handleCloudflareAuthorize))
 	s.mux.HandleFunc("GET /settings/cloudflare/callback", s.requireAuth(s.handleCloudflareCallback))
+}
+
+// MountAPI serves the per-domain public API (internal/publicapi) under /api/ on the
+// dashboard's port too, alongside its home on :443, so a client pointed at
+// https://<host>:8443/api/... works as well. It's authenticated by domain API keys,
+// not dashboard sessions.
+func (s *Server) MountAPI(h http.Handler) {
+	s.mux.Handle("/api/", h)
 }
 
 func cacheHeaders(h http.Handler) http.Handler {

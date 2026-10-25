@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title></title>
+<style type="text/css">
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body {
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+}
+.mark {
+  width: 132px; height: 132px; border-radius: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(99, 102, 241, .16), transparent 60%),
+    radial-gradient(circle at 75% 70%, rgba(139, 92, 246, .14), transparent 60%),
+    #f5f5f8;
+}
+.mark img { width: 92px; height: 92px; opacity: .9; }
+html.dark-mode body { background: #1c1c1f; }
+html.dark-mode .mark { background:
+    radial-gradient(circle at 30% 30%, rgba(124, 124, 255, .16), transparent 60%),
+    radial-gradient(circle at 75% 70%, rgba(139, 92, 246, .14), transparent 60%),
+    #26262a; }
+</style>
+<script>
+  try {
+    if (document.cookie.indexOf('colorMode=dark') > -1
+      || (document.cookie.indexOf('colorMode=light') === -1 && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
+      document.documentElement.className += ' dark-mode';
+    }
+  } catch (e) { }
+</script>
+</head>
+<body><div class="mark"><img src="images/logo-mark.png" alt=""></div></body>
+</html>

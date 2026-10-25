@@ -1,0 +1,261 @@
+/*
+ * patrabahok_guard: phishing banner, risky-link markers, attachment scan badges.
+ * Themeable through CSS custom properties (the skin may define them):
+ *   --pb-danger --pb-warn --pb-ok --pb-surface --pb-ink --pb-muted --pb-line
+ * License: GNU GPLv3+
+ */
+
+.pb-guard-banner {
+    --pbg-accent: var(--pb-warn, #f5a524);
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 12px 44px 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--pbg-accent) 45%, var(--pb-line, #e5e7eb));
+    border-left: 4px solid var(--pbg-accent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--pbg-accent) 9%, var(--pb-surface, #fff));
+    color: var(--pb-ink, #1c2024);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    text-align: left;
+}
+
+.pb-guard-banner.pb-guard-danger {
+    --pbg-accent: var(--pb-danger, #e5484d);
+}
+
+.pb-guard-banner.pb-guard-hidden,
+.pb-guard-banner[hidden] {
+    display: none !important;
+}
+
+.pb-guard-icon {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: var(--pbg-accent);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z'/%3E%3C/svg%3E") center / 20px no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z'/%3E%3C/svg%3E") center / 20px no-repeat;
+}
+
+.pb-guard-danger .pb-guard-icon {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4zm1 16h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1 3 5v6c0 5.6 3.8 10.7 9 12 5.2-1.3 9-6.4 9-12V5l-9-4zm1 16h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E");
+}
+
+.pb-guard-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pb-guard-text strong {
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 600;
+    color: var(--pb-ink, #1c2024);
+}
+
+.pb-guard-danger .pb-guard-text strong {
+    color: color-mix(in srgb, var(--pb-danger, #e5484d) 80%, var(--pb-ink, #1c2024));
+}
+
+.pb-guard-text ul {
+    margin: 0;
+    padding: 0 0 0 18px;
+    color: var(--pb-muted, #6b7280);
+}
+
+.pb-guard-text li {
+    margin: 2px 0;
+    list-style: disc;
+}
+
+.pb-guard-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--pb-muted, #6b7280);
+    font-size: 20px;
+    line-height: 28px;
+    cursor: pointer;
+}
+
+.pb-guard-dismiss:hover,
+.pb-guard-dismiss:focus-visible {
+    background: color-mix(in srgb, var(--pb-ink, #1c2024) 8%, transparent);
+    color: var(--pb-ink, #1c2024);
+    outline: none;
+}
+
+/* Risky links in the message body */
+a.pb-link-risk {
+    text-decoration: underline wavy var(--pb-warn, #f5a524) !important;
+    text-decoration-thickness: 1px !important;
+    text-underline-offset: 3px;
+}
+
+a.pb-link-risk[data-pb-risk="danger"] {
+    text-decoration-color: var(--pb-danger, #e5484d) !important;
+}
+
+a.pb-link-risk::after {
+    content: "\26A0";
+    display: inline-block;
+    margin-left: 2px;
+    font-size: 0.8em;
+    font-style: normal;
+    text-decoration: none;
+    color: var(--pb-warn, #f5a524);
+}
+
+a.pb-link-risk[data-pb-risk="danger"]::after {
+    color: var(--pb-danger, #e5484d);
+}
+
+/* Link confirmation dialog */
+.pb-guard-dialog p {
+    margin: 0 0 10px;
+}
+
+.pb-guard-dialog-real strong {
+    color: var(--pb-danger, #e5484d);
+    overflow-wrap: anywhere;
+}
+
+.pb-guard-dialog.pb-guard-warn .pb-guard-dialog-real strong {
+    color: color-mix(in srgb, var(--pb-warn, #f5a524) 70%, var(--pb-ink, #1c2024));
+}
+
+.pb-guard-dialog-url code {
+    display: block;
+    max-height: 6em;
+    overflow: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--pb-line, #e5e7eb);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--pb-ink, #1c2024) 4%, var(--pb-surface, #fff));
+    color: var(--pb-muted, #6b7280);
+    font-size: 0.8125rem;
+    word-break: break-all;
+    white-space: normal;
+}
+
+/* Attachment scan badges */
+.pb-scan-badge {
+    --pbg-accent: var(--pb-muted, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 2px 0 0 6px;
+    padding: 1px 8px 1px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--pbg-accent) 14%, var(--pb-surface, #fff));
+    color: color-mix(in srgb, var(--pbg-accent) 85%, var(--pb-ink, #1c2024));
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.pb-scan-badge::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: currentColor;
+    -webkit-mask: var(--pbg-icon) center / contain no-repeat;
+    mask: var(--pbg-icon) center / contain no-repeat;
+}
+
+.pb-scan-clean {
+    --pbg-accent: var(--pb-ok, #30a46c);
+    --pbg-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E");
+}
+
+.pb-scan-infected {
+    --pbg-accent: var(--pb-danger, #e5484d);
+    --pbg-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z'/%3E%3C/svg%3E");
+}
+
+.pb-scan-error {
+    --pbg-accent: var(--pb-warn, #f5a524);
+    --pbg-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M11 7h2v6h-2zm0 8h2v2h-2zm1-13a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'/%3E%3C/svg%3E");
+}
+
+.pb-scan-pending {
+    --pbg-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 4V1L8 5l4 4V6a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z'/%3E%3C/svg%3E");
+}
+
+.pb-scan-pending::before {
+    animation: pb-scan-spin 1s linear infinite;
+}
+
+@keyframes pb-scan-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pb-scan-pending::before {
+        animation: none;
+    }
+}
+
+li.pb-att-blocked > a {
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+li.pb-att-blocked {
+    border-color: color-mix(in srgb, var(--pb-danger, #e5484d) 50%, transparent) !important;
+}
+
+/* Dark mode (Elastic toggles html.dark-mode) */
+html.dark-mode .pb-guard-banner {
+    background: color-mix(in srgb, var(--pbg-accent) 14%, var(--pb-surface, #1a1d21));
+    border-color: color-mix(in srgb, var(--pbg-accent) 45%, var(--pb-line, #2b2f35));
+    color: var(--pb-ink, #eceef0);
+}
+
+html.dark-mode .pb-guard-text strong {
+    color: var(--pb-ink, #eceef0);
+}
+
+html.dark-mode .pb-guard-danger .pb-guard-text strong {
+    color: color-mix(in srgb, var(--pb-danger, #e5484d) 60%, var(--pb-ink, #eceef0));
+}
+
+html.dark-mode .pb-guard-text ul,
+html.dark-mode .pb-guard-dismiss {
+    color: var(--pb-muted, #a1a7b0);
+}
+
+html.dark-mode .pb-guard-dismiss:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--pb-ink, #eceef0);
+}
+
+html.dark-mode .pb-scan-badge {
+    background: color-mix(in srgb, var(--pbg-accent) 22%, var(--pb-surface, #1a1d21));
+    color: color-mix(in srgb, var(--pbg-accent) 75%, #fff);
+}
+
+html.dark-mode .pb-guard-dialog-url code {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--pb-line, #2b2f35);
+    color: var(--pb-muted, #a1a7b0);
+}

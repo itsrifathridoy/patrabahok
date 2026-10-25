@@ -14,7 +14,9 @@ User=root
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/var/mail/vhosts /var/lib/rspamd/dkim -/var/lib/patrabahok /etc/patrabahok
+# /var/spool/postfix: mail queue actions (postsuper); /etc/fail2ban/jail.d: the dashboard's
+# never-ban allowlist. Both are written only through fixed, validated commands (internal/ops).
+ReadWritePaths=/var/mail/vhosts /var/lib/rspamd/dkim -/var/lib/patrabahok /etc/patrabahok -/var/spool/postfix -/etc/fail2ban/jail.d
 
 [Install]
 WantedBy=multi-user.target

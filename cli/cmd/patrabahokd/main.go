@@ -46,6 +46,7 @@ func main() {
 	defer conn.Close()
 
 	apiSrv := api.New(conn)
+	publicAPI := publicapi.New(conn)
 
 	var listener net.Listener
 	if *tcpAddr != "" {
@@ -78,6 +79,7 @@ func main() {
 
 	if *webCert != "" && *webKey != "" {
 		webSrv := webui.New(conn)
+		webSrv.MountAPI(publicAPI)
 		go func() {
 			if err := webSrv.ServeTLS(*webAddr, *webCert, *webKey); err != nil {
 				log.Fatalf("patrabahokd: web serve: %v", err)
@@ -104,7 +106,7 @@ func main() {
 		cfg := frontdoor.Config{Addr: *httpsAddr, WebmailUpstream: *webmailUpstream}
 		if *webCert != "" && *webKey != "" {
 			cfg.HostCert = webui.CertSource(*webCert, *webKey)
-			cfg.API = publicapi.New(conn)
+			cfg.API = publicAPI
 		} else {
 			log.Printf("patrabahokd: public API and webmail disabled on %s (no -web-cert/-web-key given)", *httpsAddr)
 		}

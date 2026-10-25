@@ -49,6 +49,9 @@ var pageFiles = map[string]string{
 	"domain":       "templates/domain.html",
 	"dkim":         "templates/dkim.html",
 	"queue":        "templates/queue.html",
+	"bans":         "templates/bans.html",
+	"services":     "templates/services.html",
+	"logs":         "templates/logs.html",
 	"diagnostics":  "templates/diagnostics.html",
 	"tokens":       "templates/tokens.html",
 	"admins":       "templates/admins.html",
@@ -172,7 +175,12 @@ func plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
 	}
-	return strconv.Itoa(n) + " " + noun + "s"
+	// Pluralize the last word: "alias" → "aliases", "external member" → "external members".
+	suffix := "s"
+	if strings.HasSuffix(noun, "s") || strings.HasSuffix(noun, "x") || strings.HasSuffix(noun, "sh") {
+		suffix = "es"
+	}
+	return strconv.Itoa(n) + " " + noun + suffix
 }
 
 var policyLabels = map[string][2]string{
@@ -267,6 +275,7 @@ var funcMap = template.FuncMap{
 	"pathEscape": url.PathEscape,
 	"add":        func(a, b int) int { return a + b },
 	"quotaKey":   quotaKey,
+	"list":       func(v ...int) []int { return v },
 	"inChoices": func(v string, choices []string) bool {
 		for _, c := range choices {
 			if c == v {

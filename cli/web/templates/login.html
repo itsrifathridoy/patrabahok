@@ -13,14 +13,14 @@
       } catch (e) {}
     })();
   </script>
+  <link rel="icon" href="/static/favicon.ico?v={{assetVersion}}">
   <link rel="stylesheet" href="/static/style.css?v={{assetVersion}}">
 </head>
 <body>
   <div class="login-page">
     <section class="login-hero" aria-hidden="true">
       <div class="brand">
-        <div class="brand-mark">{{icon "send"}}</div>
-        <div class="brand-name" style="font-size:19px;">patra<span>bahok</span></div>
+        <img class="login-logo" src="/static/logo-full-dark.png" alt="patrabahok" width="190">
       </div>
       <div>
         <h2>Your organization's email, <span>under your control.</span></h2>
@@ -37,6 +37,7 @@
 
     <main class="login-side">
       <div class="login-card">
+        <img class="login-card-logo" src="/static/logo-full.png" alt="patrabahok" width="150">
         <h1>Sign in</h1>
         <p class="subtitle">Use your administrator account.</p>
         {{if .Error}}<div class="flash flash-error" role="alert">{{.Error}}</div>{{end}}

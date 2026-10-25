@@ -1,0 +1,179 @@
+/**
+ * patrabahok skin: design tokens. Compiled together with Elastic's LESS
+ * (see webmail/roundcube/build-skin.sh), overriding Elastic's palette and sizes.
+ * Runtime theming (light/dark) uses the CSS custom properties in _styles.less;
+ * these LESS values only feed Elastic's own rules.
+ * Derivative of Roundcube's Elastic skin; CC BY-SA 3.0 (see ../../README.md).
+ */
+
+// ---- brand palette ----
+@pb-accent:      #5b5bf0;
+@pb-accent-2:    #4747d6;
+@pb-accent-soft: #eeeefe;
+@pb-violet:      #8b5cf6;
+@pb-green:       #22a06b;
+@pb-red:         #e5484d;
+@pb-amber:       #f5a524;
+@pb-ink:         #17181c;
+@pb-ink-2:       #3b3d45;
+@pb-muted:       #6c707c;
+@pb-line:        #e8e9ee;
+@pb-line-strong: #d6d8df;
+@pb-canvas:      #f5f5f8;
+@pb-surface:     #ffffff;
+@pb-radius:      12px;
+@pb-radius-lg:   16px;
+@pb-font:        "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+// dark (neutral greys, like the reference design)
+@pb-d-canvas:    #18181b;
+@pb-d-sidebar:   #202023;
+@pb-d-surface:   #1c1c1f;
+@pb-d-raised:    #26262a;
+@pb-d-line:      #2e2e33;
+@pb-d-ink:       #ececf1;
+@pb-d-muted:     #9b9ba6;
+@pb-d-accent:    #7c7cff;
+
+// ---- Elastic palette ----
+@color-main:                @pb-accent;
+@color-main-dark:           @pb-accent-2;
+@color-black:               @pb-ink;
+@color-font:                @pb-ink;
+@color-link:                @pb-accent;
+@color-link-hover:          @pb-accent-2;
+@color-border:              @pb-line;
+@color-error:               @pb-red;
+@color-success:             @pb-green;
+@color-warning:             @pb-amber;
+@color-black-shade-text:    @pb-muted;
+@color-black-shade-border:  @pb-line;
+@color-black-shade-bg:      #f0f0f4;
+
+@color-layout-border:               @pb-line;
+@color-layout-header:               @pb-ink;
+@color-layout-sidebar-background:   @pb-canvas;
+@color-layout-list-background:      @pb-surface;
+@color-layout-content-background:   @pb-surface;
+@color-layout-header-background:    @pb-surface;
+@color-layout-footer-background:    @pb-surface;
+@color-layout-mobile-header-background: @pb-surface;
+@color-layout-mobile-footer-background: @pb-surface;
+
+@color-taskmenu-background:                     @pb-canvas;
+@color-taskmenu-button:                         @pb-muted;
+@color-taskmenu-button-selected:                @pb-accent;
+@color-taskmenu-button-action:                  @pb-ink;
+@color-taskmenu-button-selected-background:     @pb-accent-soft;
+@color-taskmenu-button-action-background:       transparent;
+@color-taskmenu-button-hover:                   @pb-ink;
+@color-taskmenu-button-selected-hover:          @pb-accent;
+@color-taskmenu-button-action-hover:            @pb-ink;
+@color-taskmenu-button-background-hover:        #ebebf0;
+@color-taskmenu-button-action-background-hover: transparent;
+@color-taskmenu-button-logout:                  @pb-red;
+@color-taskmenu-button-logout-hover:            @pb-red;
+
+@color-toolbar-button:                  @pb-ink-2;
+@color-toolbar-button-background-hover: @pb-canvas;
+@color-searchbar-background:            @pb-surface;
+
+@color-menu-hover:               @pb-ink;
+@color-menu-hover-background:    @pb-accent-soft;
+
+@color-list:                        @pb-ink;
+@color-list-selected:               @pb-ink;
+@color-list-selected-background:    @pb-accent-soft;
+@color-list-flagged:                @pb-ink;
+@color-list-deleted:                fade(@pb-ink, 45%);
+@color-list-secondary:              @pb-muted;
+@color-list-droptarget-background:  #fff7e6;
+@color-list-focus-indicator:        fade(@pb-accent, 40%);
+@color-list-border:                 @pb-line;
+@color-list-badge:                  #ffffff;
+@color-list-badge-background:       @pb-accent;
+@color-list-recent:                 @pb-accent;
+@color-list-recent-badge:           #ffffff;
+@color-list-recent-badge-background: @pb-accent;
+@color-list-pagenav:                @pb-muted;
+@color-list-icon:                   #9a9ea9;
+@color-list-unread-status:          @pb-accent;
+@color-attachmentlist-border:       @pb-line;
+@color-attachmentlist-background:   @pb-canvas;
+@color-drag-layer-background:       @pb-ink;
+
+@color-message-background:          fade(@pb-accent, 6%);
+@color-message-information:         @pb-ink;
+@color-message-success:             @pb-green;
+@color-message-warning:             @pb-amber;
+@color-message-error:               @pb-red;
+@color-message-loading:             @pb-ink-2;
+
+@color-popover-shadow:              fade(@pb-ink, 16%);
+@color-dialog-overlay-background:   fade(#09090b, 55%);
+@color-dialog-header:               @pb-ink;
+@color-dialog-header-border:        @pb-line;
+
+@color-input:                       @pb-ink;
+@color-input-border:                @pb-line-strong;
+@color-input-border-focus:          @pb-accent;
+@color-input-border-focus-shadow:   fade(@pb-accent, 18%);
+@color-input-border-invalid:        @pb-red;
+@color-input-addon-background:      @pb-canvas;
+@color-recipient-input-border:      fade(@pb-accent, 22%);
+@color-recipient-input-background:  @pb-accent-soft;
+@color-input-placeholder:           #a0a3ad;
+@color-checkbox:                    @pb-line-strong;
+@color-checkbox-checked:            @pb-accent;
+@color-checkbox-focus:              @pb-accent;
+@color-form-hint:                   @pb-muted;
+
+@color-btn-primary:                 #ffffff;
+@color-btn-primary-background:      @pb-accent;
+@color-btn-secondary:               @pb-ink;
+@color-btn-secondary-background:    #f0f0f4;
+@color-btn-danger-background:       @pb-red;
+
+@color-quota-background:            #e9e9f0;
+@color-quota-value:                 @pb-accent;
+@color-quota-value-warning:         @pb-red;
+
+@color-blockquote-0-border:         #a5a5ff;
+@color-blockquote-1-border:         #86efac;
+@color-blockquote-2-border:         #fcd34d;
+@color-table-selected-background:   @pb-accent-soft;
+@color-scrollbar-thumb:             #d4d5dc;
+
+// ---- dark mode ----
+@color-dark-main:                   @pb-d-accent;
+@color-dark-background:             @pb-d-surface;
+@color-dark-font:                   @pb-d-ink;
+@color-dark-border:                 @pb-d-line;
+@color-dark-hint:                   @pb-d-muted;
+@color-dark-information:            @pb-d-accent;
+@color-dark-success:                #3ecf8e;
+@color-dark-warning:                #fbbf24;
+@color-dark-error:                  #ff6b6b;
+@color-dark-list-selected:          #ffffff;
+@color-dark-list-selected-background: #2c2c40;
+@color-dark-list-badge:             #ffffff;
+@color-dark-list-badge-background:  @pb-accent;
+@color-dark-list-border:            @pb-d-line;
+@color-dark-input:                  @pb-d-ink;
+@color-dark-input-border:           #3a3a41;
+@color-dark-input-background:       @pb-d-raised;
+@color-dark-input-border-focus:     @pb-d-accent;
+@color-dark-input-background-focus: #2a2a2f;
+@color-dark-input-addon-background: #2c2c31;
+@color-dark-btn-primary-background: @pb-accent;
+@color-dark-btn-secondary-background: #2c2c31;
+@color-dark-popover-background:     @pb-d-raised;
+@color-dark-popover-border:         #36363c;
+@color-dark-scrollbar-thumb:        #3a3a41;
+@color-dark-scrollbar-track:        transparent;
+
+// ---- sizes ----
+@page-font-size:          14px;
+@layout-menu-width:       68px;
+@layout-header-height:    64px;
+@layout-searchbar-height: 42px;

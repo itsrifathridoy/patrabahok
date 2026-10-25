@@ -115,6 +115,13 @@
     ok.focus();
   });
 
+  // ---- log views start scrolled to the newest line ------------------------------
+  function scrollLogs(root) {
+    (root || document).querySelectorAll(".log-view").forEach(function (el) { el.scrollTop = el.scrollHeight; });
+  }
+  document.addEventListener("DOMContentLoaded", function () { scrollLogs(); });
+  document.addEventListener("htmx:afterSwap", function (e) { scrollLogs(e.detail.target.parentNode || document); });
+
   // ---- keyboard ---------------------------------------------------------------
   document.addEventListener("keydown", function (e) {
     if (e.key !== "/" || e.ctrlKey || e.metaKey) return;
